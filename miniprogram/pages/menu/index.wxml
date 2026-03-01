@@ -1,0 +1,98 @@
+<view class="container">
+  <!-- 顶部信息 -->
+  <view class="header glass-card-no-radius">
+    <view class="store-info">
+      <text class="store-name">未来餐厅</text>
+      <text class="store-status">营业中</text>
+    </view>
+    <view class="table-tag">
+      <text class="table-label">桌号</text>
+      <text class="table-value">A01</text>
+    </view>
+  </view>
+
+  <!-- 主体内容 -->
+  <view class="content">
+    <!-- 左侧分类 -->
+    <scroll-view class="sidebar" scroll-y show-scrollbar="{{false}}">
+      <view 
+        wx:for="{{categories}}" 
+        wx:key="id" 
+        class="category-item {{currentCategory === item.id ? 'active' : ''}}"
+        bindtap="switchCategory"
+        data-id="{{item.id}}"
+      >
+        <text>{{item.name}}</text>
+        <view class="active-indicator" wx:if="{{currentCategory === item.id}}"></view>
+      </view>
+      <view style="height: 100rpx"></view> <!-- 底部占位 -->
+    </scroll-view>
+
+    <!-- 右侧菜品 -->
+    <scroll-view class="menu-list" scroll-y scroll-into-view="{{toView}}" scroll-with-animation>
+      <view wx:for="{{categories}}" wx:key="id" id="cat-{{item.id}}" class="category-section">
+        <view class="category-title">{{item.name}}</view>
+        <view class="dish-list">
+          <view wx:for="{{item.dishes}}" wx:key="id" wx:for-item="dish" class="dish-item glass-card">
+            <image class="dish-img lazy-load" src="{{dish.image}}" mode="aspectFill" lazy-load></image>
+            <view class="dish-info">
+              <view>
+                <text class="dish-name">{{dish.name}}</text>
+                <text class="dish-desc text-ellipsis">{{dish.description || '暂无描述'}}</text>
+              </view>
+              <view class="dish-bottom">
+                <view class="price-area">
+                  <text class="currency">¥</text>
+                  <text class="price price-font">{{dish.priceFen / 100}}</text>
+                </view>
+                
+                <view class="stepper">
+                  <view 
+                    wx:if="{{cart[dish.id] > 0}}" 
+                    class="btn-minus touch-target" 
+                    bindtap="updateCart" 
+                    data-id="{{dish.id}}" 
+                    data-delta="{{-1}}"
+                    hover-class="btn-active"
+                  >-</view>
+                  
+                  <text wx:if="{{cart[dish.id] > 0}}" class="count fade-in">{{cart[dish.id]}}</text>
+                  
+                  <view 
+                    class="btn-plus touch-target" 
+                    bindtap="updateCart" 
+                    data-id="{{dish.id}}" 
+                    data-delta="{{1}}"
+                    hover-class="btn-active"
+                  >+</view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view style="height: 180rpx;"></view> <!-- 底部垫高，防遮挡 -->
+    </scroll-view>
+  </view>
+
+  <!-- 底部购物车条 -->
+  <view class="cart-bar-wrapper {{cartCount > 0 ? 'show' : ''}}">
+    <view class="cart-bar glass-card">
+      <view class="cart-icon-wrapper" bindtap="goToCart" hover-class="scale-active">
+        <view class="cart-icon">🛒</view>
+        <view class="badge scale-in" wx:if="{{cartCount > 0}}">{{cartCount}}</view>
+      </view>
+      
+      <view class="cart-info" bindtap="goToCart">
+        <view class="cart-total price-font">
+          <text class="currency">¥</text>{{cartTotal / 100}}
+        </view>
+        <text class="delivery-tip">免配送费</text>
+      </view>
+      
+      <button class="checkout-btn neon-btn" bindtap="goToCart" hover-class="btn-hover">
+        去结算
+      </button>
+    </view>
+  </view>
+</view>

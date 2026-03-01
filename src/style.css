@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 玻璃态基础变量 */
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-text-main: #ffffff;
+    --glass-text-sub: rgba(255, 255, 255, 0.7);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    
+    /* 品牌色 - 霓虹感 */
+    --neon-primary: #00f2ff;
+    --neon-secondary: #7000ff;
+    --neon-accent: #ff0055;
+  }
+
+  body {
+    @apply bg-slate-900 text-white antialiased;
+    /* 深色动感渐变背景 */
+    background-image: 
+      radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+      radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+      radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+    background-attachment: fixed;
+    background-size: cover;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* 玻璃卡片标准类 */
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-2xl transition-all duration-300;
+  }
+  
+  .glass-card:hover {
+    @apply bg-white/10 border-white/20 shadow-2xl shadow-indigo-500/20;
+  }
+
+  /* 玻璃按钮 */
+  .glass-btn {
+    @apply px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500/80 to-blue-500/80 
+           text-white font-medium tracking-wide shadow-lg shadow-cyan-500/30 
+           hover:shadow-cyan-500/50 hover:brightness-110 active:scale-95 transition-all duration-200
+           border border-white/10 backdrop-blur-sm;
+  }
+
+  .glass-btn-secondary {
+    @apply px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/80
+           hover:bg-white/10 hover:text-white hover:border-white/30 active:scale-95 transition-all duration-200
+           backdrop-blur-sm shadow-sm hover:shadow-white/5;
+  }
+
+  .glass-btn-danger {
+    @apply px-4 py-2 rounded-lg bg-gradient-to-r from-red-500/80 to-pink-600/80 
+           text-white font-medium tracking-wide shadow-lg shadow-red-500/30 
+           hover:shadow-red-500/50 hover:brightness-110 active:scale-95 transition-all duration-200
+           border border-white/10 backdrop-blur-sm;
+  }
+
+  /* 玻璃输入框 */
+  .glass-input {
+    @apply w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2.5 text-white 
+           placeholder-white/30 focus:outline-none focus:border-cyan-400/50 focus:bg-black/40 
+           focus:ring-1 focus:ring-cyan-400/30 transition-all duration-200
+           hover:border-white/20 hover:bg-black/30;
+  }
+  
+  /* 下拉选框 */
+  .glass-select {
+    @apply glass-input appearance-none bg-no-repeat bg-right pr-10 cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff80' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-size: 1.5em 1.5em;
+  }
+  
+  .glass-select option {
+    @apply bg-slate-800 text-white;
+  }
+
+  /* 玻璃表格 */
+  .glass-table {
+    @apply w-full text-left border-collapse;
+  }
+  
+  .glass-table th {
+    @apply p-4 text-xs font-bold tracking-wider text-cyan-100/70 uppercase border-b border-white/10 bg-white/5;
+  }
+  
+  .glass-table td {
+    @apply p-4 border-b border-white/5 text-white/90 transition-colors;
+  }
+  
+  .glass-table tr {
+    @apply transition-colors duration-200;
+  }
+  
+  .glass-table tr:hover {
+    @apply bg-white/5;
+  }
+  
+  .glass-table tr:hover td {
+    @apply text-white;
+  }
+  
+  /* 状态胶囊 */
+  .glass-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-white/10 backdrop-blur-sm shadow-sm;
+  }
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

@@ -1,0 +1,72 @@
+<view class="container">
+  <!-- 列表区 -->
+  <scroll-view class="cart-list" scroll-y wx:if="{{items.length > 0}}">
+    <view class="list-header">
+      <text class="list-title">购物车</text>
+      <text class="clear-btn" bindtap="clearCart" wx:if="{{false}}">清空</text>
+    </view>
+    
+    <view wx:for="{{items}}" wx:key="dishId" class="cart-item glass-card">
+      <view class="item-info">
+        <text class="name">{{item.dishName}}</text>
+        <view class="price-wrap">
+          <text class="currency">¥</text>
+          <text class="price price-font">{{item.unitPriceFen / 100}}</text>
+        </view>
+      </view>
+      
+      <view class="stepper">
+        <view 
+          class="btn-minus touch-target" 
+          bindtap="updateQty" 
+          data-id="{{item.dishId}}" 
+          data-delta="{{-1}}"
+          hover-class="btn-active"
+        >-</view>
+        
+        <text class="qty">{{item.qty}}</text>
+        
+        <view 
+          class="btn-plus touch-target" 
+          bindtap="updateQty" 
+          data-id="{{item.dishId}}" 
+          data-delta="{{1}}"
+          hover-class="btn-active"
+        >+</view>
+      </view>
+    </view>
+    
+    <view style="height: 140rpx"></view> <!-- 底部占位 -->
+  </scroll-view>
+  
+  <!-- 空状态 -->
+  <view class="empty-cart" wx:else>
+    <view class="empty-icon-wrapper">
+      <text class="empty-icon">🛒</text>
+    </view>
+    <text class="empty-text">购物车空空如也</text>
+    <button class="go-back-btn neon-btn" bindtap="goBack" hover-class="btn-hover">
+      去点餐
+    </button>
+  </view>
+
+  <!-- 底部结算栏 -->
+  <view class="footer glass-card-no-radius safe-area-bottom" wx:if="{{items.length > 0}}">
+    <view class="total-area">
+      <text class="label">合计:</text>
+      <view class="total-price">
+        <text class="currency">¥</text>
+        <text class="amount price-font">{{totalPrice / 100}}</text>
+      </view>
+    </view>
+    
+    <button 
+      class="submit-btn neon-btn" 
+      bindtap="submitOrder" 
+      loading="{{submitting}}"
+      hover-class="btn-hover"
+    >
+      提交订单
+    </button>
+  </view>
+</view>

@@ -1,0 +1,41 @@
+<view class="container">
+  <!-- 背景光效 -->
+  <view class="bg-glow bg-glow-1"></view>
+  <view class="bg-glow bg-glow-2"></view>
+
+  <view class="welcome-card glass-card">
+    <view class="header-text">
+      <view class="logo-area">
+        <text class="logo-icon">🍽️</text>
+      </view>
+      <text class="title">未来餐厅</text>
+      <text class="subtitle">探索未来味蕾之旅</text>
+    </view>
+    
+    <view class="action-area">
+      <button 
+        class="scan-btn neon-btn" 
+        hover-class="btn-hover" 
+        bindtap="handleScan"
+      >
+        <text class="icon-scan">📷</text> 扫描桌码点餐
+      </button>
+      
+      <button 
+        class="manual-btn glass-btn-secondary" 
+        hover-class="btn-hover" 
+        bindtap="handleManual"
+      >
+        模拟体验 (测试用)
+      </button>
+    </view>
+  </view>
+
+  <view class="tips">
+    <text>· 极速下单 · 自动出餐 · 科技体验 ·</text>
+  </view>
+
+  <view class="footer">
+    <text class="brand">FoodOS v2.0</text>
+  </view>
+</view>

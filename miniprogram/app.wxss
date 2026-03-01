@@ -1,0 +1,86 @@
+/** app.wxss **/
+page {
+  /* 玻璃态基础变量 - 小程序端 */
+  --bg-dark: #0f172a; /* Slate-900 */
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-text-main: #ffffff;
+  --glass-text-sub: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+  /* 霓虹品牌色 */
+  --neon-cyan: #22d3ee;
+  --neon-purple: #a855f7;
+  --neon-pink: #f472b6;
+
+  /* 字体 */
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica,
+    Segoe UI, Arial, Roboto, 'PingFang SC', 'miui', 'Hiragino Sans GB', 'Microsoft Yahei',
+    sans-serif;
+  
+  /* 全局深色渐变背景 */
+  background: radial-gradient(at 0% 0%, #1a1a2e 0, transparent 50%), 
+              radial-gradient(at 50% 0%, #16213e 0, transparent 50%), 
+              radial-gradient(at 100% 0%, #1f4068 0, transparent 50%),
+              #0f172a; /* Fallback color */
+  background-attachment: fixed;
+  background-size: cover;
+  color: var(--glass-text-main);
+  box-sizing: border-box;
+  min-height: 100vh;
+}
+
+.container {
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 玻璃态卡片通用类 */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1rpx solid var(--glass-border);
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.2);
+  color: var(--glass-text-main);
+}
+
+/* 霓虹渐变按钮 */
+.neon-btn {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.8), rgba(59, 130, 246, 0.8)) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4rpx 16rpx rgba(34, 211, 238, 0.4);
+  font-weight: bold;
+  border-radius: 16rpx;
+  transition: all 0.2s;
+}
+
+.neon-btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+/* 次级玻璃按钮 */
+.glass-btn-secondary {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1rpx solid rgba(255, 255, 255, 0.2) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-radius: 16rpx;
+}
+
+/* 价格字体 */
+.price-font {
+  font-family: 'DIN Alternate', 'Roboto', sans-serif;
+  font-weight: bold;
+}
+
+/* 无障碍触控区 */
+.touch-target {
+  min-width: 88rpx;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
