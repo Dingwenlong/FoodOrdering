@@ -4,7 +4,7 @@
       <text class="store-name">{{storeName || '未来餐厅'}}</text>
       <text class="store-status">营业中</text>
     </view>
-    <view class="table-tag" bindtap="goScan">
+    <view class="table-tag touch-target" bindtap="goScan">
       <text class="table-label">桌号</text>
       <text class="table-value">{{tableName || tableId}}</text>
     </view>
@@ -15,6 +15,8 @@
       class="search-input"
       value="{{keyword}}"
       bindinput="handleKeywordInput"
+      adjust-position="true"
+      cursor-spacing="16"
       placeholder="搜索菜品名称 / 描述"
       placeholder-class="search-placeholder"
     />
@@ -37,7 +39,6 @@
         <text>{{item.name}}</text>
         <view class="active-indicator" wx:if="{{currentCategory === item.id}}"></view>
       </view>
-      <view style="height: 100rpx"></view>
     </scroll-view>
 
     <scroll-view class="menu-list" scroll-y scroll-into-view="{{toView}}" scroll-with-animation>
@@ -99,7 +100,6 @@
           </view>
         </view>
       </view>
-      <view style="height: 180rpx;"></view>
     </scroll-view>
   </view>
 
@@ -111,27 +111,29 @@
         <text class="spec-price">¥{{specDish.priceFen / 100}}</text>
       </view>
 
-      <view class="spec-section">
-        <text class="spec-label">口味（占位）</text>
-        <view class="taste-list">
-          <view
-            wx:for="{{specTasteOptions}}"
-            wx:key="*this"
-            class="taste-chip {{specTasteIndex === index ? 'active' : ''}}"
-            data-index="{{index}}"
-            bindtap="selectSpecTaste"
-          >{{item}}</view>
+      <scroll-view class="spec-body" scroll-y>
+        <view class="spec-section">
+          <text class="spec-label">口味（占位）</text>
+          <view class="taste-list">
+            <view
+              wx:for="{{specTasteOptions}}"
+              wx:key="*this"
+              class="taste-chip touch-target {{specTasteIndex === index ? 'active' : ''}}"
+              data-index="{{index}}"
+              bindtap="selectSpecTaste"
+            >{{item}}</view>
+          </view>
         </view>
-      </view>
 
-      <view class="spec-section">
-        <text class="spec-label">数量</text>
-        <view class="spec-stepper">
-          <view class="btn-minus touch-target" bindtap="updateSpecQty" data-delta="{{-1}}">-</view>
-          <text class="spec-qty">{{specQty}}</text>
-          <view class="btn-plus touch-target" bindtap="updateSpecQty" data-delta="{{1}}">+</view>
+        <view class="spec-section">
+          <text class="spec-label">数量</text>
+          <view class="spec-stepper">
+            <view class="btn-minus touch-target" bindtap="updateSpecQty" data-delta="{{-1}}">-</view>
+            <text class="spec-qty">{{specQty}}</text>
+            <view class="btn-plus touch-target" bindtap="updateSpecQty" data-delta="{{1}}">+</view>
+          </view>
         </view>
-      </view>
+      </scroll-view>
 
       <view class="spec-actions">
         <button class="spec-cancel" bindtap="closeSpec">取消</button>
