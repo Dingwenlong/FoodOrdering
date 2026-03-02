@@ -1,47 +1,97 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mockOrders = exports.mockCategories = void 0;
+exports.mockOrders = exports.mockCategories = exports.mockStoreSession = void 0;
+exports.mockStoreSession = {
+    storeId: 'store_1',
+    storeName: '未来餐厅',
+    tableId: '1',
+    tableName: 'A01',
+};
 exports.mockCategories = [
     {
-        id: 'c1',
+        id: '1',
         name: '热销推荐',
         sort: 1,
         dishes: [
-            { id: 'd1', categoryId: 'c1', name: '招牌牛肉面', priceFen: 2800, onSale: true, image: 'https://placehold.co/200x200?text=Beef+Noodle', description: '采用上等牛腱肉，秘制汤底' },
-            { id: 'd2', categoryId: 'c1', name: '鲜虾云吞', priceFen: 2200, onSale: true, image: 'https://placehold.co/200x200?text=Wonton', description: '整只鲜虾，皮薄馅大' }
+            {
+                id: '1',
+                categoryId: '1',
+                name: '宫保鸡丁',
+                priceFen: 3800,
+                onSale: true,
+                soldOut: false,
+                image: 'https://placehold.co/200x200?text=Kung+Pao',
+                description: '经典川菜，鸡肉嫩滑，花生香脆',
+            },
+            {
+                id: '2',
+                categoryId: '1',
+                name: '麻婆豆腐',
+                priceFen: 2800,
+                onSale: true,
+                soldOut: false,
+                image: 'https://placehold.co/200x200?text=Mapo+Tofu',
+                description: '四川传统名菜，麻辣鲜香',
+            }
         ]
     },
     {
-        id: 'c2',
-        name: '主食',
+        id: '2',
+        name: '凉菜',
         sort: 2,
         dishes: [
-            { id: 'd3', categoryId: 'c2', name: '扬州炒饭', priceFen: 1800, onSale: true, image: 'https://placehold.co/200x200?text=Fried+Rice' },
-            { id: 'd4', categoryId: 'c2', name: '炸酱面', priceFen: 1600, onSale: true, image: 'https://placehold.co/200x200?text=Noodle' }
+            {
+                id: '3',
+                categoryId: '2',
+                name: '凉拌黄瓜',
+                priceFen: 1800,
+                onSale: true,
+                soldOut: false,
+                image: 'https://placehold.co/200x200?text=Cucumber',
+                description: '清爽开胃，夏日必备',
+            }
         ]
     },
     {
-        id: 'c3',
-        name: '饮料',
+        id: '5',
+        name: '饮品',
         sort: 3,
         dishes: [
-            { id: 'd5', categoryId: 'c3', name: '冰可乐', priceFen: 300, onSale: true, image: 'https://placehold.co/200x200?text=Coke' },
-            { id: 'd6', categoryId: 'c3', name: '鲜榨橙汁', priceFen: 1200, onSale: true, image: 'https://placehold.co/200x200?text=Orange+Juice' }
+            {
+                id: '6',
+                categoryId: '5',
+                name: '可乐',
+                priceFen: 800,
+                onSale: true,
+                soldOut: false,
+                image: 'https://placehold.co/200x200?text=Coke',
+                description: '冰镇更佳',
+            },
+            {
+                id: '7',
+                categoryId: '5',
+                name: '鲜榨橙汁',
+                priceFen: 1200,
+                onSale: true,
+                soldOut: true,
+                image: 'https://placehold.co/200x200?text=Orange+Juice',
+                description: '今日售罄',
+            }
         ]
     }
 ];
 exports.mockOrders = [
     {
-        id: 'o1',
-        storeId: 's1',
-        tableId: 't1',
+        id: '10001',
+        storeId: exports.mockStoreSession.storeId,
+        tableId: exports.mockStoreSession.tableId,
         tableName: 'A01',
         status: 'COOKING',
         items: [
-            { dishId: 'd1', dishName: '招牌牛肉面', unitPriceFen: 2800, qty: 1 },
-            { dishId: 'd5', dishName: '冰可乐', unitPriceFen: 300, qty: 1 }
+            { dishId: '1', dishName: '宫保鸡丁', unitPriceFen: 3800, qty: 1 },
+            { dishId: '6', dishName: '可乐', unitPriceFen: 800, qty: 2 }
         ],
-        totalPriceFen: 3100,
+        totalPriceFen: 5400,
         createdAt: new Date().toISOString(),
         remark: '不要香菜'
     }

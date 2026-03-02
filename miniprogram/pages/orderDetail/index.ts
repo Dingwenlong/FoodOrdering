@@ -1,98 +1,172 @@
-import { request } from '../../utils/request';
-import { Order } from '../../types/index';
+import { request, STORAGE_KEYS } from '../../utils/request';
+import type { Order, PrepayPayload, PrepayResult, UrgeOrderResult } from '../../types/index';
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 Page({
   data: {
     order: null as Order | null,
     statusText: '',
-    statusIcon: 'waiting', // success, waiting, cancel, warn
-    paying: false
+    statusIcon: 'waiting',
+    statusColor: '#60a5fa',
+    paying: false,
+    urgeLoading: false,
+    loading: false,
+    errorMsg: '',
   },
 
-  onLoad(options: any) {
-    if (options.id) {
-      this.fetchOrder(options.id);
+  onLoad(options: Record<string, string>) {
+    const orderId = (options.id || wx.getStorageSync(STORAGE_KEYS.lastOrderId) || '').trim();
+    if (!orderId) {
+      this.setData({ errorMsg: '缺少订单ID，请返回购物车重新下单' });
+      return;
+    }
+    this.fetchOrder(orderId);
+  },
+
+  onShow() {
+    const orderId = this.data.order?.id;
+    if (orderId) {
+      this.fetchOrder(orderId);
     }
   },
 
   async fetchOrder(id: string) {
+    this.setData({ loading: true, errorMsg: '' });
     try {
-      wx.showLoading({ title: '加载订单...' });
-      const res = await request({ url: `/orders/${id}`, method: 'GET' });
-      const order = res.data as Order;
-      
+      const res = await request<Order>({ url: `/orders/${id}`, method: 'GET' });
+      const order = res.data;
       this.setData({ order });
       this.updateStatusUI(order.status);
-    } catch (e) {
-      console.error(e);
-      wx.showToast({ title: '加载失败', icon: 'none' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '订单加载失败';
+      this.setData({ errorMsg: msg });
     } finally {
-      wx.hideLoading();
+      this.setData({ loading: false });
     }
   },
 
   updateStatusUI(status: string) {
     let text = '';
     let icon = 'waiting';
+    let color = '#60a5fa';
 
     switch (status) {
       case 'PENDING_PAY':
         text = '待支付';
         icon = 'waiting';
+        color = '#f59e0b';
         break;
       case 'PAID':
         text = '已支付';
         icon = 'success';
+        color = '#22c55e';
         break;
       case 'COOKING':
         text = '制作中';
         icon = 'info';
+        color = '#38bdf8';
         break;
       case 'DONE':
         text = '已完成';
         icon = 'success';
+        color = '#14b8a6';
         break;
       case 'CANCELED':
         text = '已取消';
         icon = 'warn';
+        color = '#f87171';
         break;
       default:
         text = status;
+        icon = 'info';
+        color = '#60a5fa';
     }
-    this.setData({ statusText: text, statusIcon: icon });
+
+    this.setData({ statusText: text, statusIcon: icon, statusColor: color });
   },
 
   async handlePay() {
-    if (!this.data.order) return;
-    
-    this.setData({ paying: true });
+    if (!this.data.order || this.data.paying) return;
+
+    this.setData({ paying: true, errorMsg: '' });
     try {
-      // 1. Get Prepay Info
-      const res = await request({ 
-        url: '/pay/wechat/prepay', 
-        method: 'POST', 
-        data: { orderId: this.data.order.id } 
+      const payload: PrepayPayload = { orderId: this.data.order.id };
+      await request<PrepayResult>({
+        url: '/pay/wechat/prepay',
+        method: 'POST',
+        data: payload,
       });
 
-      // 2. Call WxPay (Mocked in request util, but here is standard API)
-      // Since we are in mock mode, we simulate success directly or use the mock result
-      
-      wx.showLoading({ title: '支付中...' });
-      setTimeout(() => {
-        wx.hideLoading();
-        wx.showToast({ title: '支付成功', icon: 'success' });
-        
-        // Refresh Order
-        this.setData({ 
-          'order.status': 'PAID',
-          paying: false 
-        });
-        this.updateStatusUI('PAID');
-      }, 1000);
+      wx.showLoading({ title: '支付处理中...' });
+      await wait(900);
 
-    } catch (e) {
-      wx.showToast({ title: '支付失败', icon: 'none' });
+      const confirmRes = await request<Order>({
+        url: '/pay/wechat/confirm',
+        method: 'POST',
+        data: payload,
+      });
+      wx.hideLoading();
+
+      this.setData({ order: confirmRes.data });
+      this.updateStatusUI(confirmRes.data.status);
+      wx.showToast({ title: '支付成功', icon: 'success' });
+    } catch (err) {
+      wx.hideLoading();
+      const msg = err instanceof Error ? err.message : '支付失败';
+      this.setData({ errorMsg: msg });
+      wx.showToast({ title: msg, icon: 'none' });
+    } finally {
       this.setData({ paying: false });
     }
-  }
+  },
+
+  async handleUrge() {
+    if (!this.data.order || this.data.urgeLoading) return;
+    if (this.data.order.status !== 'PAID' && this.data.order.status !== 'COOKING') {
+      wx.showToast({ title: '当前状态不可催单', icon: 'none' });
+      return;
+    }
+
+    this.setData({ urgeLoading: true, errorMsg: '' });
+    try {
+      const res = await request<UrgeOrderResult>({
+        url: `/orders/${this.data.order.id}/urge`,
+        method: 'POST',
+      });
+      wx.showToast({ title: res.data.message || '催单成功', icon: 'none' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '催单失败';
+      this.setData({ errorMsg: msg });
+      wx.showToast({ title: msg, icon: 'none' });
+    } finally {
+      this.setData({ urgeLoading: false });
+    }
+  },
+
+  async refreshOrder() {
+    const orderId = this.data.order?.id;
+    if (!orderId) return;
+    await this.fetchOrder(orderId);
+  },
+
+  copyId(e: WechatMiniprogram.BaseEvent) {
+    const orderId = String(e.currentTarget.dataset.id || '');
+    if (!orderId) return;
+    wx.setClipboardData({
+      data: orderId,
+      success: () => wx.showToast({ title: '订单号已复制', icon: 'success' }),
+    });
+  },
+
+  goMenu() {
+    const session = wx.getStorageSync(STORAGE_KEYS.session) || {};
+    if (!session.storeId || !session.tableId) {
+      wx.redirectTo({ url: '/pages/scan/index' });
+      return;
+    }
+    wx.redirectTo({
+      url: `/pages/menu/index?storeId=${session.storeId}&tableId=${session.tableId}`,
+    });
+  },
 });

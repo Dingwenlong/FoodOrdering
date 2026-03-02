@@ -52,6 +52,7 @@ export const mockUsers: AppUser[] = [
     createdAt: '2026-01-12T04:10:00.000Z',
     lastActiveAt: nowIso(),
     orderCount: 5,
+    status: 'ACTIVE',
   },
   {
     id: 'u_2',
@@ -59,6 +60,7 @@ export const mockUsers: AppUser[] = [
     createdAt: '2026-02-03T09:22:00.000Z',
     lastActiveAt: '2026-02-28T10:00:00.000Z',
     orderCount: 2,
+    status: 'INACTIVE',
   },
 ]
 
@@ -208,4 +210,131 @@ export function mockUpdateOrderStatus(orderId: string, status: OrderStatus): Ord
   if (!found) throw new Error('订单不存在')
   found.status = status
   return found
+}
+
+function idSeq(prefix: string, source: { id: string }[]): string {
+  const nums = source
+    .map((it) => {
+      const match = it.id.match(/(\d+)$/)
+      return match ? Number(match[1]) : 0
+    })
+    .filter((n) => Number.isFinite(n))
+  const next = (nums.length ? Math.max(...nums) : 0) + 1
+  return `${prefix}${next}`
+}
+
+export function mockCreateNotice(payload: { title: string; content: string; isPinned: boolean }): Notice {
+  const notice: Notice = {
+    id: idSeq('notice_', mockNotices),
+    title: payload.title,
+    content: payload.content,
+    isPinned: payload.isPinned,
+    createdAt: nowIso(),
+  }
+  mockNotices.unshift(notice)
+  return notice
+}
+
+export function mockUpdateNotice(payload: { noticeId: string; title: string; content: string; isPinned: boolean }): Notice {
+  const idx = mockNotices.findIndex((n) => n.id === payload.noticeId)
+  if (idx < 0) throw new Error('公告不存在')
+  const current = mockNotices[idx]
+  const next: Notice = {
+    ...current,
+    title: payload.title,
+    content: payload.content,
+    isPinned: payload.isPinned,
+  }
+  mockNotices[idx] = next
+  return next
+}
+
+export function mockDeleteNotice(noticeId: string): void {
+  const idx = mockNotices.findIndex((n) => n.id === noticeId)
+  if (idx < 0) throw new Error('公告不存在')
+  mockNotices.splice(idx, 1)
+}
+
+export function mockCreateDish(payload: {
+  categoryId: string
+  name: string
+  priceFen: number
+  onSale: boolean
+  soldOut: boolean
+}): Dish {
+  const dish: Dish = {
+    id: idSeq('d_', mockDishes),
+    categoryId: payload.categoryId,
+    name: payload.name,
+    priceFen: payload.priceFen,
+    onSale: payload.onSale,
+    soldOut: payload.soldOut,
+  }
+  mockDishes.unshift(dish)
+  return dish
+}
+
+export function mockUpdateDish(payload: {
+  dishId: string
+  categoryId: string
+  name: string
+  priceFen: number
+  onSale: boolean
+  soldOut: boolean
+}): Dish {
+  const idx = mockDishes.findIndex((d) => d.id === payload.dishId)
+  if (idx < 0) throw new Error('菜品不存在')
+  const next: Dish = {
+    id: payload.dishId,
+    categoryId: payload.categoryId,
+    name: payload.name,
+    priceFen: payload.priceFen,
+    onSale: payload.onSale,
+    soldOut: payload.soldOut,
+  }
+  mockDishes[idx] = next
+  return next
+}
+
+export function mockDeleteDish(dishId: string): void {
+  const idx = mockDishes.findIndex((d) => d.id === dishId)
+  if (idx < 0) throw new Error('菜品不存在')
+  mockDishes.splice(idx, 1)
+}
+
+export function mockUpdateUserStatus(payload: { userId: string; status: 'ACTIVE' | 'INACTIVE' }): AppUser {
+  const idx = mockUsers.findIndex((u) => u.id === payload.userId)
+  if (idx < 0) throw new Error('用户不存在')
+  const current = mockUsers[idx]
+  const next: AppUser = {
+    ...current,
+    status: payload.status,
+  }
+  mockUsers[idx] = next
+  return next
+}
+
+export function mockUpdateFeedback(payload: { feedbackId: string; status: Feedback['status'] }): Feedback {
+  const idx = mockFeedbacks.findIndex((f) => f.id === payload.feedbackId)
+  if (idx < 0) throw new Error('留言不存在')
+  const current = mockFeedbacks[idx]
+  const next: Feedback = {
+    ...current,
+    status: payload.status,
+  }
+  mockFeedbacks[idx] = next
+  return next
+}
+
+export function mockUpdateSupportTicket(payload: { ticketId: string; status: SupportTicket['status'] }): SupportTicket {
+  const idx = mockSupportTickets.findIndex((t) => t.id === payload.ticketId)
+  if (idx < 0) throw new Error('工单不存在')
+  const current = mockSupportTickets[idx]
+  const next: SupportTicket = {
+    ...current,
+    status: payload.status,
+    lastMessageAt: nowIso(),
+  }
+  mockSupportTickets[idx] = next
+  return next
 }

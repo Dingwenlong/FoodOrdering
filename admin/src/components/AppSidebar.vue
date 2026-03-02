@@ -22,7 +22,7 @@ const menuItems = [
   { name: '公告管理', path: '/notices', icon: Bell },
   { name: '评论管理', path: '/comments', icon: MessageSquare },
   { name: '客服管理', path: '/support', icon: HelpCircle },
-  { name: '系统设置', path: '/system', icon: Settings },
+  { name: '系统设置', path: '/settings', icon: Settings },
 ]
 
 const isActive = (path: string) => route.path.startsWith(path)

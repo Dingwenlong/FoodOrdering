@@ -1,58 +1,148 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { request } from '../lib/api'
+import { computed, onMounted, ref } from 'vue'
+import type { Category, Dish } from '@/types'
+import { api } from '@/lib/api'
 import Card from '../components/Card.vue'
 import GlassModal from '../components/GlassModal.vue'
 import { Search, Plus, Edit2, Trash2, Filter } from 'lucide-vue-next'
 
-interface Dish {
-  id: string
-  name: string
-  priceFen: number
-  categoryName: string
-  onSale: boolean
-  image?: string
-}
+type DishRow = Dish & { categoryName: string }
 
+const categories = ref<Category[]>([])
 const dishes = ref<Dish[]>([])
+const keyword = ref('')
 const loading = ref(false)
+const saving = ref(false)
+const deletingId = ref<string | null>(null)
+const errorMsg = ref<string | null>(null)
+
 const showModal = ref(false)
 const isEdit = ref(false)
-const currentDish = ref<Partial<Dish>>({})
+const form = ref({
+  dishId: '',
+  categoryId: '',
+  name: '',
+  priceFen: 0,
+  onSale: true,
+  soldOut: false,
+})
 
-const fetchMenu = async () => {
+const categoryMap = computed(() => new Map(categories.value.map((c) => [c.id, c.name])))
+
+const dishRows = computed<DishRow[]>(() => {
+  const q = keyword.value.trim().toLowerCase()
+  const rows = dishes.value.map((dish) => ({
+    ...dish,
+    categoryName: categoryMap.value.get(dish.categoryId) ?? '未分类',
+  }))
+  if (!q) return rows
+  return rows.filter((d) => d.name.toLowerCase().includes(q) || d.categoryName.toLowerCase().includes(q))
+})
+
+function resetForm() {
+  form.value = {
+    dishId: '',
+    categoryId: categories.value[0]?.id ?? '',
+    name: '',
+    priceFen: 0,
+    onSale: true,
+    soldOut: false,
+  }
+}
+
+async function loadMenu() {
   loading.value = true
+  errorMsg.value = null
   try {
-    // Mock data for now
-    dishes.value = [
-      { id: '1', name: '招牌牛肉面', priceFen: 2800, categoryName: '热销推荐', onSale: true, image: 'https://placehold.co/100x100' },
-      { id: '2', name: '鲜虾云吞', priceFen: 2200, categoryName: '热销推荐', onSale: true, image: 'https://placehold.co/100x100' },
-      { id: '3', name: '冰可乐', priceFen: 300, categoryName: '饮料', onSale: true },
-    ]
+    const data = await api.listMenu()
+    categories.value = data.categories
+    dishes.value = data.dishes
+    if (!form.value.categoryId && categories.value.length > 0) {
+      form.value.categoryId = categories.value[0].id
+    }
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : '加载菜单失败'
   } finally {
     loading.value = false
   }
 }
 
-const openAdd = () => {
+function openAdd() {
   isEdit.value = false
-  currentDish.value = { onSale: true }
+  resetForm()
   showModal.value = true
 }
 
-const openEdit = (dish: Dish) => {
+function openEdit(dish: Dish) {
   isEdit.value = true
-  currentDish.value = { ...dish }
+  form.value = {
+    dishId: dish.id,
+    categoryId: dish.categoryId,
+    name: dish.name,
+    priceFen: dish.priceFen,
+    onSale: dish.onSale,
+    soldOut: dish.soldOut,
+  }
   showModal.value = true
 }
 
-const saveDish = async () => {
-  // Save logic here
-  showModal.value = false
-  fetchMenu()
+async function saveDish() {
+  if (!form.value.name.trim()) {
+    errorMsg.value = '菜品名称不能为空'
+    return
+  }
+  if (!form.value.categoryId) {
+    errorMsg.value = '请选择所属分类'
+    return
+  }
+  if (!Number.isFinite(form.value.priceFen) || form.value.priceFen < 0) {
+    errorMsg.value = '价格必须为非负数'
+    return
+  }
+
+  saving.value = true
+  errorMsg.value = null
+  try {
+    const payload = {
+      categoryId: form.value.categoryId,
+      name: form.value.name.trim(),
+      priceFen: Number(form.value.priceFen),
+      onSale: form.value.onSale,
+      soldOut: form.value.soldOut,
+    }
+    if (isEdit.value) {
+      await api.updateDish({ dishId: form.value.dishId, ...payload })
+    } else {
+      await api.createDish(payload)
+    }
+    showModal.value = false
+    resetForm()
+    await loadMenu()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : '保存菜品失败'
+  } finally {
+    saving.value = false
+  }
 }
 
-onMounted(fetchMenu)
+async function handleDelete(dishId: string) {
+  if (!window.confirm('确认删除该菜品？')) return
+  deletingId.value = dishId
+  errorMsg.value = null
+  try {
+    await api.deleteDish(dishId)
+    await loadMenu()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : '删除菜品失败'
+  } finally {
+    deletingId.value = null
+  }
+}
+
+onMounted(async () => {
+  await loadMenu()
+  resetForm()
+})
 </script>
 
 <template>
@@ -61,7 +151,7 @@ onMounted(fetchMenu)
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <h1 class="text-2xl font-bold text-white tracking-tight">菜品管理</h1>
       <div class="flex gap-3">
-        <button class="glass-btn-secondary flex items-center gap-2">
+        <button class="glass-btn-secondary flex items-center gap-2" :disabled="loading" @click="loadMenu">
           <Filter class="w-4 h-4" /> 筛选
         </button>
         <button @click="openAdd" class="glass-btn flex items-center gap-2">
@@ -70,10 +160,15 @@ onMounted(fetchMenu)
       </div>
     </div>
 
+    <div v-if="errorMsg" class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+      {{ errorMsg }}
+    </div>
+
     <!-- Search -->
     <div class="relative max-w-md">
       <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 w-5 h-5" />
       <input 
+        v-model.trim="keyword"
         type="text" 
         placeholder="搜索菜品名称..." 
         class="glass-input pl-10"
@@ -95,26 +190,36 @@ onMounted(fetchMenu)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="dish in dishes" :key="dish.id" class="group">
+            <tr v-if="loading">
+              <td colspan="6" class="py-8 text-center text-white/40">加载中...</td>
+            </tr>
+            <tr v-else-if="dishRows.length === 0">
+              <td colspan="6" class="py-8 text-center text-white/40">暂无菜品</td>
+            </tr>
+            <tr v-for="dish in dishRows" :key="dish.id" class="group">
               <td>
                 <div class="w-12 h-12 rounded-lg bg-white/10 overflow-hidden border border-white/10">
-                  <img v-if="dish.image" :src="dish.image" class="w-full h-full object-cover" />
-                  <div v-else class="w-full h-full flex items-center justify-center text-xs text-white/30">无图</div>
+                  <div class="w-full h-full flex items-center justify-center text-xs text-white/30">暂无图</div>
                 </div>
               </td>
               <td class="font-bold text-white">{{ dish.name }}</td>
               <td class="text-white/70"><span class="glass-badge bg-blue-500/20 text-blue-200 border-blue-500/30">{{ dish.categoryName }}</span></td>
               <td class="font-bold text-cyan-300">¥{{ (dish.priceFen / 100).toFixed(2) }}</td>
               <td>
-                <span :class="['glass-badge', dish.onSale ? 'bg-green-500/20 text-green-200 border-green-500/30' : 'bg-red-500/20 text-red-200 border-red-500/30']">
-                  {{ dish.onSale ? '上架中' : '已下架' }}
+                <span :class="['glass-badge', dish.onSale && !dish.soldOut ? 'bg-green-500/20 text-green-200 border-green-500/30' : 'bg-red-500/20 text-red-200 border-red-500/30']">
+                  {{ dish.soldOut ? '已售罄' : (dish.onSale ? '上架中' : '已下架') }}
                 </span>
               </td>
               <td class="text-right space-x-2">
                 <button @click="openEdit(dish)" class="p-2 hover:bg-white/10 rounded-lg text-cyan-400 transition-colors" title="编辑">
                   <Edit2 class="w-4 h-4" />
                 </button>
-                <button class="p-2 hover:bg-white/10 rounded-lg text-red-400 transition-colors" title="删除">
+                <button
+                  class="p-2 hover:bg-white/10 rounded-lg text-red-400 transition-colors disabled:opacity-40"
+                  title="删除"
+                  :disabled="deletingId === dish.id"
+                  @click="handleDelete(dish.id)"
+                >
                   <Trash2 class="w-4 h-4" />
                 </button>
               </td>
@@ -129,28 +234,30 @@ onMounted(fetchMenu)
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-white/60 mb-1">菜品名称</label>
-          <input v-model="currentDish.name" type="text" class="glass-input" />
+          <input v-model="form.name" type="text" class="glass-input" />
         </div>
         <div>
           <label class="block text-sm font-medium text-white/60 mb-1">价格 (分)</label>
-          <input v-model="currentDish.priceFen" type="number" class="glass-input" />
+          <input v-model.number="form.priceFen" type="number" class="glass-input" />
         </div>
         <div>
           <label class="block text-sm font-medium text-white/60 mb-1">所属分类</label>
-          <select class="glass-select w-full">
-            <option>热销推荐</option>
-            <option>主食</option>
-            <option>饮料</option>
+          <select v-model="form.categoryId" class="glass-select w-full">
+            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
           </select>
         </div>
         <div class="flex items-center gap-2">
-          <input type="checkbox" v-model="currentDish.onSale" class="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-cyan-500/50" />
+          <input type="checkbox" v-model="form.onSale" class="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-cyan-500/50" />
           <span class="text-white/80">立即上架</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" v-model="form.soldOut" class="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-cyan-500/50" />
+          <span class="text-white/80">标记为售罄</span>
         </div>
       </div>
       <template #footer>
-        <button @click="showModal = false" class="glass-btn-secondary">取消</button>
-        <button @click="saveDish" class="glass-btn">保存</button>
+        <button @click="showModal = false" class="glass-btn-secondary" :disabled="saving">取消</button>
+        <button @click="saveDish" class="glass-btn" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
       </template>
     </GlassModal>
   </div>

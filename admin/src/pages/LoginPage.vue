@@ -16,14 +16,10 @@ const handleLogin = async () => {
   error.value = ''
   
   try {
-    const success = await authStore.login(username.value, password.value)
-    if (success) {
-      router.push('/orders')
-    } else {
-      error.value = 'Invalid credentials'
-    }
+    await authStore.login({ username: username.value, password: password.value })
+    await router.push('/orders')
   } catch (e) {
-    error.value = 'Login failed'
+    error.value = e instanceof Error ? e.message : 'Login failed'
   } finally {
     loading.value = false
   }

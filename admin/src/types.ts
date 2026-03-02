@@ -47,6 +47,7 @@ export type AppUser = {
   createdAt: string
   lastActiveAt: string
   orderCount: number
+  status: 'ACTIVE' | 'INACTIVE'
 }
 
 export type Category = {

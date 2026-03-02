@@ -1,76 +1,174 @@
-import { request } from '../../utils/request';
-import { CartItem } from '../../types/index';
+import { request, STORAGE_KEYS } from '../../utils/request';
+import type { CartItem, Category, CreateOrderPayload, MenuResult, Order } from '../../types/index';
+
+type CartMap = Record<string, number>;
 
 Page({
   data: {
+    storeId: '',
+    tableId: '',
+    tableName: '',
     items: [] as CartItem[],
     totalPrice: 0,
-    submitting: false
+    serviceFee: 0,
+    payablePrice: 0,
+    remark: '',
+    remarkLimit: 80,
+    remarkLength: 0,
+    submitting: false,
+    loading: false,
+    errorMsg: '',
+  },
+
+  onLoad(options: Record<string, string>) {
+    this.resolveSession(options);
   },
 
   onShow() {
+    const remark = String(wx.getStorageSync(STORAGE_KEYS.cartRemark) || '');
+    this.setData({ remark, remarkLength: remark.length });
     this.loadCart();
   },
 
-  loadCart() {
-    // 从本地存储读取购物车 (dishId -> qty)
-    // 实际项目中应该还需要读取菜品详情来展示名称和价格，这里简化假设已经有详情或再次请求
-    // 为了简化，我们假设 menu 页面存入的是完整信息，或者我们这里重新 fetch menu
-    // 这里做个简单处理：从 storage 读取 cart 映射，并结合 menu 数据（需要 menu 页面配合存完整信息或者重新拉取）
-    
-    // 重新拉取 Menu 来匹配信息 (模拟)
-    const cartMap = wx.getStorageSync('cart') || {};
-    this.fetchMenuAndMatch(cartMap);
+  resolveSession(options: Record<string, string>) {
+    const session = wx.getStorageSync(STORAGE_KEYS.session) || {};
+    const storeId = (options.storeId || session.storeId || '').trim();
+    const tableId = (options.tableId || session.tableId || '').trim();
+    const tableName = (options.tableName || session.tableName || `桌号${tableId}`).trim();
+
+    if (!storeId || !tableId) {
+      wx.showToast({ title: '请先绑定桌台', icon: 'none' });
+      setTimeout(() => wx.redirectTo({ url: '/pages/scan/index' }), 240);
+      return;
+    }
+
+    this.setData({ storeId, tableId, tableName });
   },
 
-  async fetchMenuAndMatch(cartMap: Record<string, number>) {
-    try {
-      const storeId = wx.getStorageSync('storeId') || 's1';
-      const res = await request({ url: `/menu?storeId=${storeId}`, method: 'GET' });
-      const categories = res.data;
-      
-      const items: CartItem[] = [];
-      let total = 0;
+  async loadCart() {
+    const cartMap = (wx.getStorageSync(STORAGE_KEYS.cart) || {}) as CartMap;
+    const dishIds = Object.keys(cartMap).filter((id) => Number(cartMap[id]) > 0);
 
-      categories.forEach((cat: any) => {
-        cat.dishes.forEach((dish: any) => {
-          if (cartMap[dish.id]) {
-            items.push({
-              dishId: dish.id,
-              dishName: dish.name,
-              unitPriceFen: dish.priceFen,
-              qty: cartMap[dish.id]
-            });
-            total += dish.priceFen * cartMap[dish.id];
-          }
+    if (dishIds.length === 0) {
+      this.setData({ items: [], totalPrice: 0, payablePrice: 0, errorMsg: '' });
+      return;
+    }
+
+    this.setData({ loading: true, errorMsg: '' });
+
+    try {
+      const menuCache = wx.getStorageSync('menuCache') || {};
+      let categories: Category[] = [];
+
+      if (menuCache.storeId === this.data.storeId && Array.isArray(menuCache.categories)) {
+        categories = menuCache.categories;
+      } else {
+        const res = await request<MenuResult>({
+          url: `/menu?storeId=${encodeURIComponent(this.data.storeId)}`,
+          method: 'GET',
         });
+        categories = res.data.categories || [];
+        wx.setStorageSync('menuCache', {
+          storeId: this.data.storeId,
+          categories,
+          updatedAt: Date.now(),
+        });
+      }
+
+      const items = this.buildItems(categories, cartMap);
+      const totals = this.calcTotals(items);
+      this.setData({
+        items,
+        totalPrice: totals.totalPrice,
+        payablePrice: totals.totalPrice + this.data.serviceFee,
       });
 
-      this.setData({ items, totalPrice: total });
-    } catch (e) {
-      console.error(e);
+      this.syncCartStorage(items);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '加载购物车失败';
+      this.setData({ errorMsg: msg });
+      wx.showToast({ title: msg, icon: 'none' });
+    } finally {
+      this.setData({ loading: false });
     }
   },
 
-  updateQty(e: any) {
-    const { id, delta } = e.currentTarget.dataset;
-    const items = this.data.items.map(item => {
-      if (item.dishId === id) {
-        return { ...item, qty: item.qty + delta };
-      }
-      return item;
-    }).filter(item => item.qty > 0);
-
-    // Update Storage
-    const newCartMap: Record<string, number> = {};
-    let total = 0;
-    items.forEach(item => {
-      newCartMap[item.dishId] = item.qty;
-      total += item.unitPriceFen * item.qty;
+  buildItems(categories: Category[], cartMap: CartMap): CartItem[] {
+    const dishMap: Record<string, { name: string; priceFen: number }> = {};
+    categories.forEach((category) => {
+      category.dishes.forEach((dish) => {
+        dishMap[dish.id] = { name: dish.name, priceFen: dish.priceFen };
+      });
     });
-    wx.setStorageSync('cart', newCartMap);
 
-    this.setData({ items, totalPrice: total });
+    return Object.keys(cartMap)
+      .filter((dishId) => Number(cartMap[dishId]) > 0 && Boolean(dishMap[dishId]))
+      .map((dishId) => ({
+        dishId,
+        dishName: dishMap[dishId].name,
+        unitPriceFen: dishMap[dishId].priceFen,
+        qty: Number(cartMap[dishId]),
+      }));
+  },
+
+  calcTotals(items: CartItem[]) {
+    const totalPrice = items.reduce((sum, item) => sum + item.unitPriceFen * item.qty, 0);
+    return { totalPrice };
+  },
+
+  updateQty(e: WechatMiniprogram.BaseEvent) {
+    const id = String(e.currentTarget.dataset.id || '');
+    const delta = Number(e.currentTarget.dataset.delta || 0);
+    if (!id || !delta) return;
+
+    const items = this.data.items
+      .map((item) => {
+        if (item.dishId !== id) return item;
+        return { ...item, qty: item.qty + delta };
+      })
+      .filter((item) => item.qty > 0);
+
+    const totals = this.calcTotals(items);
+    this.setData({
+      items,
+      totalPrice: totals.totalPrice,
+      payablePrice: totals.totalPrice + this.data.serviceFee,
+    });
+
+    this.syncCartStorage(items);
+  },
+
+  syncCartStorage(items: CartItem[]) {
+    const cartMap: CartMap = {};
+    items.forEach((item) => {
+      cartMap[item.dishId] = item.qty;
+    });
+    wx.setStorageSync(STORAGE_KEYS.cart, cartMap);
+  },
+
+  clearCart() {
+    wx.showModal({
+      title: '清空购物车',
+      content: '确认清空当前已选菜品吗？',
+      success: (res) => {
+        if (!res.confirm) return;
+        wx.removeStorageSync(STORAGE_KEYS.cart);
+        this.setData({
+          items: [],
+          totalPrice: 0,
+          payablePrice: 0,
+        });
+      },
+    });
+  },
+
+  handleRemarkInput(e: WechatMiniprogram.BaseEvent) {
+    const value = String((e as any).detail?.value || '').slice(0, this.data.remarkLimit);
+    this.setData({
+      remark: value,
+      remarkLength: value.length,
+    });
+    wx.setStorageSync(STORAGE_KEYS.cartRemark, value);
   },
 
   goBack() {
@@ -78,38 +176,50 @@ Page({
   },
 
   async submitOrder() {
-    if (this.data.items.length === 0) return;
+    if (this.data.items.length === 0) {
+      wx.showToast({ title: '购物车为空', icon: 'none' });
+      return;
+    }
 
-    this.setData({ submitting: true });
+    this.setData({ submitting: true, errorMsg: '' });
     try {
-      const orderData = {
-        storeId: wx.getStorageSync('storeId'),
-        tableId: wx.getStorageSync('tableId'),
-        items: this.data.items,
-        totalPriceFen: this.data.totalPrice
+      const payload: CreateOrderPayload = {
+        storeId: this.data.storeId,
+        tableId: this.data.tableId,
+        items: this.data.items.map((item) => ({
+          dishId: item.dishId,
+          qty: item.qty,
+        })),
+        remark: this.data.remark.trim(),
       };
 
-      const res = await request({
+      const res = await request<Order>({
         url: '/orders',
         method: 'POST',
-        data: orderData
+        data: payload,
       });
 
-      if (res.statusCode === 200) {
-        // Clear Cart
-        wx.removeStorageSync('cart');
-        wx.showToast({ title: '下单成功', icon: 'success' });
-        
-        setTimeout(() => {
-          wx.redirectTo({
-            url: `/pages/orderDetail/index?id=${res.data.id}`
-          });
-        }, 1500);
+      const orderId = String(res.data.id || '');
+      if (!orderId) {
+        throw new Error('订单创建失败');
       }
-    } catch (e) {
-      wx.showToast({ title: '下单失败', icon: 'none' });
+
+      wx.removeStorageSync(STORAGE_KEYS.cart);
+      wx.removeStorageSync(STORAGE_KEYS.cartRemark);
+      wx.setStorageSync(STORAGE_KEYS.lastOrderId, orderId);
+
+      wx.showToast({ title: '下单成功', icon: 'success' });
+      setTimeout(() => {
+        wx.redirectTo({
+          url: `/pages/orderDetail/index?id=${orderId}`,
+        });
+      }, 260);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '下单失败';
+      this.setData({ errorMsg: msg });
+      wx.showToast({ title: msg, icon: 'none' });
     } finally {
       this.setData({ submitting: false });
     }
-  }
+  },
 });

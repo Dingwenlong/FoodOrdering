@@ -18,6 +18,7 @@ public class Dish {
     private BigDecimal price;
     private String image;
     private Integer status;
+    private Integer soldOut;
     private Integer sortOrder;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
@@ -36,6 +37,8 @@ public class Dish {
     public void setImage(String image) { this.image = image; }
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
+    public Integer getSoldOut() { return soldOut; }
+    public void setSoldOut(Integer soldOut) { this.soldOut = soldOut; }
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     public LocalDateTime getCreateTime() { return createTime; }

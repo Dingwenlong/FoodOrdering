@@ -72,3 +72,9 @@ mybatis-plus:
 logging:
   level:
     com.foodordering: debug
+
+app:
+  auth:
+    admin:
+      jwt-secret: ${ADMIN_JWT_SECRET:food-ordering-admin-jwt-secret-change-me-2026}
+      token-ttl-seconds: ${ADMIN_JWT_TTL_SECONDS:43200}

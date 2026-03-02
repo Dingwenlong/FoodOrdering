@@ -1,5 +1,4 @@
 <view class="container">
-  <!-- 背景光效 -->
   <view class="bg-glow bg-glow-1"></view>
   <view class="bg-glow bg-glow-2"></view>
 
@@ -9,33 +8,67 @@
         <text class="logo-icon">🍽️</text>
       </view>
       <text class="title">未来餐厅</text>
-      <text class="subtitle">探索未来味蕾之旅</text>
+      <text class="subtitle">扫码绑定桌台，快速开始点餐</text>
     </view>
-    
+
+    <view class="binding-info" wx:if="{{tableId}}">
+      <text class="binding-text">已绑定 {{storeName}} · {{tableName}}</text>
+      <button class="mini-action" bindtap="goMenu">进入点餐</button>
+    </view>
+
+    <view class="manual-form glass-card">
+      <view class="field-row">
+        <text class="field-label">门店ID</text>
+        <input
+          class="field-input"
+          value="{{manualStoreId}}"
+          bindinput="handleStoreInput"
+          placeholder="例如 store_1"
+          placeholder-class="placeholder"
+        />
+      </view>
+      <view class="field-row">
+        <text class="field-label">桌号ID</text>
+        <input
+          class="field-input"
+          value="{{manualTableId}}"
+          bindinput="handleTableInput"
+          placeholder="例如 1"
+          placeholder-class="placeholder"
+        />
+      </view>
+    </view>
+
+    <view class="error-box" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+
     <view class="action-area">
-      <button 
-        class="scan-btn neon-btn" 
-        hover-class="btn-hover" 
+      <button
+        class="scan-btn neon-btn"
+        hover-class="btn-hover"
         bindtap="handleScan"
+        loading="{{loading}}"
+        disabled="{{loading}}"
       >
         <text class="icon-scan">📷</text> 扫描桌码点餐
       </button>
-      
-      <button 
-        class="manual-btn glass-btn-secondary" 
-        hover-class="btn-hover" 
+
+      <button
+        class="manual-btn glass-btn-secondary"
+        hover-class="btn-hover"
         bindtap="handleManual"
+        loading="{{loading}}"
+        disabled="{{loading}}"
       >
-        模拟体验 (测试用)
+        手动绑定并进入
       </button>
     </view>
   </view>
 
   <view class="tips">
-    <text>· 极速下单 · 自动出餐 · 科技体验 ·</text>
+    <text>支持扫码桌码或手动输入桌号，均可绑定会话</text>
   </view>
 
   <view class="footer">
-    <text class="brand">FoodOS v2.0</text>
+    <text class="brand">FoodOS v2.1</text>
   </view>
 </view>

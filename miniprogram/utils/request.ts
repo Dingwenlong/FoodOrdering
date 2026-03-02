@@ -1,40 +1,365 @@
-import { mockCategories, mockOrders } from '../mock/data';
+import { mockCategories, mockOrders, mockStoreSession } from '../mock/data';
+import type {
+  BindTablePayload,
+  BindTableResult,
+  Category,
+  CreateOrderPayload,
+  Dish,
+  Order,
+  PrepayPayload,
+  UrgeOrderResult,
+} from '../types/index';
 
-const USE_MOCK = true;
-const BASE_URL = 'http://localhost:3000/api/v1'; // 真实接口地址占位
+const MOCK_FLAG_KEY = 'MP_USE_MOCK';
+const API_BASE_URL_KEY = 'MP_API_BASE_URL';
 
-export const request = async (options: WechatMiniprogram.RequestOption): Promise<any> => {
-  if (USE_MOCK) {
-    console.log('Mock Request:', options.url, options.method, options.data);
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simple Mock Routing
-        if (options.url.includes('/menu')) {
-          resolve({ data: mockCategories, statusCode: 200 });
-        } else if (options.url.includes('/orders') && options.method === 'POST') {
-          const orderData = options.data as object;
-          resolve({ data: { id: 'o_' + Date.now(), ...orderData }, statusCode: 200 });
-        } else if (options.url.includes('/orders') && options.method === 'GET') {
-           // Detail or List
-           if (options.url.match(/\/orders\/.+/)) {
-             resolve({ data: mockOrders[0], statusCode: 200 });
-           } else {
-             resolve({ data: mockOrders, statusCode: 200 });
-           }
-        } else if (options.url.includes('/pay')) {
-           resolve({ data: { nonceStr: 'mock_nonce', package: 'prepay_id=mock' }, statusCode: 200 });
-        } else {
-          resolve({ data: {}, statusCode: 200 });
-        }
-      }, 500);
-    });
+const USE_MOCK = wx.getStorageSync(MOCK_FLAG_KEY) !== false;
+const BASE_URL = (wx.getStorageSync(API_BASE_URL_KEY) as string) || 'http://localhost:8080';
+const API_PREFIX = '/api/v1';
+
+export const STORAGE_KEYS = {
+  session: 'storeSession',
+  cart: 'cart',
+  cartRemark: 'cartRemark',
+  lastOrderId: 'lastOrderId',
+};
+
+type ApiEnvelope<T> = {
+  code: number;
+  message: string;
+  data: T;
+  timestamp?: string;
+};
+
+type RequestResult<T> = {
+  data: T;
+  statusCode: number;
+  message?: string;
+};
+
+type UrlInfo = {
+  path: string;
+  query: Record<string, string>;
+};
+
+const mockState = {
+  orders: cloneOrders(mockOrders),
+};
+
+function cloneOrders(list: Order[]): Order[] {
+  return list.map((order) => ({
+    ...order,
+    items: order.items.map((item) => ({ ...item })),
+  }));
+}
+
+const successEnvelope = <T>(data: T): ApiEnvelope<T> => ({
+  code: 0,
+  message: 'OK',
+  data,
+  timestamp: new Date().toISOString(),
+});
+
+const unwrapEnvelope = <T>(payload: any): { data: T; message: string } => {
+  if (payload && typeof payload === 'object' && typeof payload.code === 'number' && 'data' in payload) {
+    if (payload.code !== 0) {
+      throw new Error(payload.message || '请求失败');
+    }
+    return { data: payload.data as T, message: payload.message || 'OK' };
   }
+  return { data: payload as T, message: 'OK' };
+};
+
+const requestDelay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function parseUrl(rawUrl: string): UrlInfo {
+  const [rawPath, rawQuery = ''] = rawUrl.split('?');
+  const path = rawPath || '/';
+  const query: Record<string, string> = {};
+  if (!rawQuery) {
+    return { path, query };
+  }
+
+  rawQuery.split('&').forEach((kv) => {
+    if (!kv) return;
+    const [k, v = ''] = kv.split('=');
+    if (!k) return;
+    query[decodeURIComponent(k)] = decodeURIComponent(v);
+  });
+  return { path, query };
+}
+
+function normalizeApiPath(path: string): string {
+  if (path.startsWith(API_PREFIX)) {
+    const normalized = path.slice(API_PREFIX.length);
+    return normalized || '/';
+  }
+  if (path.startsWith('/api/v1')) {
+    const normalized = path.slice('/api/v1'.length);
+    return normalized || '/';
+  }
+  return path;
+}
+
+function resolveUrl(rawUrl: string): string {
+  if (/^https?:\/\//i.test(rawUrl)) {
+    return rawUrl;
+  }
+  if (rawUrl.startsWith('/api/')) {
+    return `${BASE_URL}${rawUrl}`;
+  }
+  if (rawUrl.startsWith('/')) {
+    return `${BASE_URL}${API_PREFIX}${rawUrl}`;
+  }
+  return `${BASE_URL}${API_PREFIX}/${rawUrl}`;
+}
+
+function getMethod(options: WechatMiniprogram.RequestOption): string {
+  return (options.method || 'GET').toUpperCase();
+}
+
+function findDishById(dishId: string): Dish | null {
+  for (const category of mockCategories) {
+    const dish = category.dishes.find((item) => item.id === dishId);
+    if (dish) return dish;
+  }
+  return null;
+}
+
+function normalizeMenu(payload: any): { storeId: string; storeName: string; categories: Category[] } {
+  if (Array.isArray(payload)) {
+    return {
+      storeId: mockStoreSession.storeId,
+      storeName: mockStoreSession.storeName,
+      categories: payload as Category[],
+    };
+  }
+
+  if (payload && typeof payload === 'object' && Array.isArray(payload.categories)) {
+    return {
+      storeId: String(payload.storeId || mockStoreSession.storeId),
+      storeName: String(payload.storeName || mockStoreSession.storeName),
+      categories: payload.categories as Category[],
+    };
+  }
+
+  return {
+    storeId: mockStoreSession.storeId,
+    storeName: mockStoreSession.storeName,
+    categories: [],
+  };
+}
+
+function normalizeOrder(rawOrder: any): Order {
+  const rawItems = Array.isArray(rawOrder?.items) ? rawOrder.items : [];
+
+  const items = rawItems.map((item: any) => {
+    const unitPriceFen = item?.unitPriceFen ?? item?.unitPrice?.amountFen ?? 0;
+    return {
+      dishId: String(item?.dishId || ''),
+      dishName: String(item?.dishName || ''),
+      unitPriceFen: Number(unitPriceFen) || 0,
+      qty: Number(item?.qty) || 0,
+    };
+  });
+
+  const totalPriceFen = Number(rawOrder?.totalPriceFen ?? rawOrder?.totalPrice?.amountFen ?? 0) || 0;
+
+  return {
+    id: String(rawOrder?.id || ''),
+    storeId: String(rawOrder?.storeId || mockStoreSession.storeId),
+    tableId: String(rawOrder?.tableId || mockStoreSession.tableId),
+    tableName: String(rawOrder?.tableName || mockStoreSession.tableName),
+    status: String(rawOrder?.status || 'PENDING_PAY') as Order['status'],
+    items,
+    totalPriceFen,
+    remark: rawOrder?.remark ? String(rawOrder.remark) : '',
+    createdAt: String(rawOrder?.createdAt || new Date().toISOString()),
+  };
+}
+
+function buildMockOrder(payload: CreateOrderPayload | Record<string, any>): Order {
+  const tableId = String(payload.tableId || mockStoreSession.tableId);
+  const tableName = tableId === mockStoreSession.tableId ? mockStoreSession.tableName : `桌号${tableId}`;
+  const sourceItems = Array.isArray(payload.items) ? payload.items : [];
+
+  const items: Order['items'] = [];
+  let totalPriceFen = 0;
+
+  sourceItems.forEach((rawItem: any) => {
+    const dishId = String(rawItem?.dishId || '');
+    const qty = Number(rawItem?.qty ?? rawItem?.quantity ?? 0);
+    if (!dishId || !Number.isFinite(qty) || qty <= 0) return;
+
+    const dish = findDishById(dishId);
+    if (!dish || dish.onSale === false || dish.soldOut) return;
+
+    items.push({
+      dishId,
+      dishName: dish.name,
+      unitPriceFen: dish.priceFen,
+      qty,
+    });
+    totalPriceFen += dish.priceFen * qty;
+  });
+
+  if (items.length === 0) {
+    throw new Error('购物车为空或菜品不可下单');
+  }
+
+  return {
+    id: String(Date.now()),
+    storeId: String(payload.storeId || mockStoreSession.storeId),
+    tableId,
+    tableName,
+    status: 'PENDING_PAY',
+    items,
+    totalPriceFen,
+    remark: payload.remark ? String(payload.remark).trim() : '',
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function resolveErrorMessage(payload: any, fallback: string): string {
+  if (payload && typeof payload === 'object') {
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      return payload.message;
+    }
+    if (typeof payload.error === 'string' && payload.error.trim()) {
+      return payload.error;
+    }
+  }
+  return fallback;
+}
+
+async function handleMockRequest<T = any>(options: WechatMiniprogram.RequestOption): Promise<RequestResult<T>> {
+  const method = getMethod(options);
+  const urlInfo = parseUrl(String(options.url || '/'));
+  const path = normalizeApiPath(urlInfo.path);
+  const body = (options.data || {}) as Record<string, any>;
+
+  await requestDelay(280);
+
+  let result: any;
+
+  if (path === '/session/bind-table' && method === 'POST') {
+    const payload = body as Partial<BindTablePayload>;
+    if (!payload.tableId) {
+      throw new Error('tableId 不能为空');
+    }
+    result = {
+      storeId: String(payload.storeId || mockStoreSession.storeId),
+      storeName: mockStoreSession.storeName,
+      tableId: String(payload.tableId),
+      tableName: payload.tableId === mockStoreSession.tableId ? mockStoreSession.tableName : `桌号${payload.tableId}`,
+    } as BindTableResult;
+  } else if (path === '/menu' && method === 'GET') {
+    result = {
+      storeId: urlInfo.query.storeId || mockStoreSession.storeId,
+      storeName: mockStoreSession.storeName,
+      categories: mockCategories,
+    };
+  } else if (path === '/orders' && method === 'POST') {
+    const order = buildMockOrder(body as CreateOrderPayload);
+    mockState.orders.unshift(order);
+    result = order;
+  } else if (/^\/orders\/.+/.test(path) && method === 'GET') {
+    const orderId = path.split('/').pop() || '';
+    const order = mockState.orders.find((item) => item.id === orderId);
+    if (!order) {
+      throw new Error('订单不存在');
+    }
+    result = order;
+  } else if (/^\/orders\/.+\/urge$/.test(path) && method === 'POST') {
+    const segments = path.split('/');
+    const orderId = segments[segments.length - 2] || '';
+    const order = mockState.orders.find((item) => item.id === orderId);
+    if (!order) {
+      throw new Error('订单不存在');
+    }
+    if (order.status !== 'PAID' && order.status !== 'COOKING') {
+      throw new Error('当前订单状态不支持催单');
+    }
+    result = {
+      orderId,
+      status: order.status,
+      message: '催单成功，商家将尽快处理',
+      urgedAt: new Date().toISOString(),
+    } as UrgeOrderResult;
+  } else if (path === '/pay/wechat/prepay' && method === 'POST') {
+    const payload = body as Partial<PrepayPayload>;
+    if (!payload.orderId) {
+      throw new Error('orderId 不能为空');
+    }
+    result = {
+      timeStamp: String(Math.floor(Date.now() / 1000)),
+      nonceStr: `mock_${Date.now()}`,
+      prepayPackage: `prepay_id=mock_${payload.orderId}`,
+      signType: 'MD5',
+      paySign: 'mock-pay-sign',
+    };
+  } else if (path === '/pay/wechat/confirm' && method === 'POST') {
+    const payload = body as Partial<PrepayPayload>;
+    if (!payload.orderId) {
+      throw new Error('orderId 不能为空');
+    }
+    const index = mockState.orders.findIndex((item) => item.id === payload.orderId);
+    if (index < 0) {
+      throw new Error('订单不存在');
+    }
+    mockState.orders[index] = {
+      ...mockState.orders[index],
+      status: 'PAID',
+    };
+    result = mockState.orders[index];
+  } else {
+    throw new Error(`Mock route not found: ${method} ${path}`);
+  }
+
+  const unwrapped = unwrapEnvelope<T>(successEnvelope(result));
+  return { data: unwrapped.data, statusCode: 200, message: unwrapped.message };
+}
+
+export const request = async <T = any>(options: WechatMiniprogram.RequestOption): Promise<RequestResult<T>> => {
+  if (USE_MOCK) {
+    return handleMockRequest<T>(options);
+  }
+
+  const url = resolveUrl(String(options.url || '/'));
+  const method = getMethod(options);
+  const path = normalizeApiPath(parseUrl(String(options.url || '/')).path);
 
   return new Promise((resolve, reject) => {
     wx.request({
       ...options,
-      url: BASE_URL + options.url,
-      success: (res) => resolve(res),
+      method,
+      url,
+      success: (res) => {
+        const statusCode = res.statusCode || 500;
+        if (statusCode < 200 || statusCode >= 300) {
+          reject(new Error(resolveErrorMessage(res.data, `HTTP ${statusCode}`)));
+          return;
+        }
+
+        try {
+          const unwrapped = unwrapEnvelope<any>(res.data);
+          let data = unwrapped.data;
+
+          if (path === '/menu') {
+            data = normalizeMenu(data);
+          }
+          if (path === '/orders' && method === 'POST') {
+            data = normalizeOrder(data);
+          }
+          if (/^\/orders\/.+/.test(path) && method === 'GET') {
+            data = normalizeOrder(data);
+          }
+
+          resolve({ data: data as T, statusCode, message: unwrapped.message });
+        } catch (err) {
+          reject(err);
+        }
+      },
       fail: (err) => reject(err),
     });
   });

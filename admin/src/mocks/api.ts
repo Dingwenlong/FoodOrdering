@@ -12,6 +12,10 @@ import type {
   SupportTicket,
 } from '@/types'
 import {
+  mockCreateDish,
+  mockCreateNotice,
+  mockDeleteDish,
+  mockDeleteNotice,
   mockAdminUser,
   mockCategories,
   mockComments,
@@ -21,7 +25,12 @@ import {
   mockNotices,
   mockOrders,
   mockSupportTickets,
+  mockUpdateDish,
+  mockUpdateFeedback,
   mockUpdateOrderStatus,
+  mockUpdateSupportTicket,
+  mockUpdateNotice,
+  mockUpdateUserStatus,
   mockUsers,
 } from './db'
 
@@ -93,4 +102,81 @@ export async function mockListFeedbacks(): Promise<Feedback[]> {
 export async function mockListSupportTickets(): Promise<SupportTicket[]> {
   await delay(180)
   return [...mockSupportTickets]
+}
+
+export async function mockCreateNoticeApi(payload: {
+  title: string
+  content: string
+  isPinned: boolean
+}): Promise<Notice> {
+  await delay(180)
+  return mockCreateNotice(payload)
+}
+
+export async function mockUpdateNoticeApi(payload: {
+  noticeId: string
+  title: string
+  content: string
+  isPinned: boolean
+}): Promise<Notice> {
+  await delay(180)
+  return mockUpdateNotice(payload)
+}
+
+export async function mockDeleteNoticeApi(payload: { noticeId: string }): Promise<void> {
+  await delay(120)
+  mockDeleteNotice(payload.noticeId)
+}
+
+export async function mockCreateDishApi(payload: {
+  categoryId: string
+  name: string
+  priceFen: number
+  onSale: boolean
+  soldOut: boolean
+}): Promise<Dish> {
+  await delay(180)
+  return mockCreateDish(payload)
+}
+
+export async function mockUpdateDishApi(payload: {
+  dishId: string
+  categoryId: string
+  name: string
+  priceFen: number
+  onSale: boolean
+  soldOut: boolean
+}): Promise<Dish> {
+  await delay(180)
+  return mockUpdateDish(payload)
+}
+
+export async function mockDeleteDishApi(payload: { dishId: string }): Promise<void> {
+  await delay(120)
+  mockDeleteDish(payload.dishId)
+}
+
+export async function mockUpdateUserStatusApi(payload: {
+  userId: string
+  status: 'ACTIVE' | 'INACTIVE'
+}): Promise<{ id: string; status: 'ACTIVE' | 'INACTIVE' }> {
+  await delay(140)
+  const user = mockUpdateUserStatus(payload)
+  return { id: user.id, status: user.status }
+}
+
+export async function mockUpdateFeedbackStatusApi(payload: {
+  feedbackId: string
+  status: Feedback['status']
+}): Promise<Feedback> {
+  await delay(140)
+  return mockUpdateFeedback(payload)
+}
+
+export async function mockUpdateSupportTicketStatusApi(payload: {
+  ticketId: string
+  status: SupportTicket['status']
+}): Promise<SupportTicket> {
+  await delay(140)
+  return mockUpdateSupportTicket(payload)
 }

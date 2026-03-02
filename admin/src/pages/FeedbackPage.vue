@@ -8,6 +8,7 @@ import type { Feedback } from '@/types'
 
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
+const updatingId = ref<string | null>(null)
 const list = ref<Feedback[]>([])
 
 function statusVariant(s: Feedback['status']) {
@@ -35,11 +36,28 @@ async function load() {
 }
 
 onMounted(load)
+
+async function updateStatus(fb: Feedback, status: Feedback['status']) {
+  if (fb.status === status) return
+  updatingId.value = fb.id
+  errorMsg.value = null
+  try {
+    const updated = await api.updateFeedbackStatus({ feedbackId: fb.id, status })
+    const idx = list.value.findIndex((item) => item.id === fb.id)
+    if (idx >= 0) {
+      list.value[idx] = updated
+    }
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : '更新留言状态失败'
+  } finally {
+    updatingId.value = null
+  }
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <PageHeader title="留言建议管理" subtitle="查看用户留言并跟踪处理状态（当前为Mock展示）">
+    <PageHeader title="留言建议管理" subtitle="查看用户留言并跟踪处理状态">
       <template #actions>
         <button
           type="button"
@@ -69,10 +87,27 @@ onMounted(load)
           </div>
           <button
             type="button"
-            class="h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 hover:bg-zinc-50"
-            disabled
+            class="h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            :disabled="updatingId === fb.id || fb.status === 'OPEN'"
+            @click="updateStatus(fb, 'OPEN')"
           >
-            更新状态（占位）
+            设为待处理
+          </button>
+          <button
+            type="button"
+            class="h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            :disabled="updatingId === fb.id || fb.status === 'IN_PROGRESS'"
+            @click="updateStatus(fb, 'IN_PROGRESS')"
+          >
+            处理中
+          </button>
+          <button
+            type="button"
+            class="h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            :disabled="updatingId === fb.id || fb.status === 'RESOLVED'"
+            @click="updateStatus(fb, 'RESOLVED')"
+          >
+            设为已解决
           </button>
         </div>
       </div>

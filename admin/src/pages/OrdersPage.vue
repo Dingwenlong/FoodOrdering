@@ -9,6 +9,22 @@ import { Search, Filter, MoreHorizontal } from 'lucide-vue-next'
 const orders = ref<Order[]>([])
 const loading = ref(false)
 
+function statusLabel(status: Order['status']) {
+  if (status === 'PENDING_PAY') return '待支付'
+  if (status === 'PAID') return '已支付'
+  if (status === 'COOKING') return '制作中'
+  if (status === 'DONE') return '已完成'
+  return '已取消'
+}
+
+function statusVariant(status: Order['status']) {
+  if (status === 'PENDING_PAY') return 'amber'
+  if (status === 'PAID') return 'blue'
+  if (status === 'COOKING') return 'blue'
+  if (status === 'DONE') return 'green'
+  return 'red'
+}
+
 const fetchOrders = async () => {
   loading.value = true
   try {
@@ -76,7 +92,7 @@ onMounted(() => {
             <tr v-for="order in orders" :key="order.id" class="group transition-colors">
               <td class="font-mono text-xs text-white/50">#{{ order.id.slice(0, 8) }}</td>
               <td class="font-bold text-white">{{ order.tableName }}</td>
-              <td><StatusPill :status="order.status" /></td>
+              <td><StatusPill :label="statusLabel(order.status)" :variant="statusVariant(order.status)" /></td>
               <td class="text-white/70 text-sm">
                 {{ order.items?.map(i => i.dishName).join(', ') }}
               </td>
