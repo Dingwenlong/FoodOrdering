@@ -26,10 +26,11 @@
   <view class="loading-box" wx:if="{{loading}}">菜单加载中...</view>
 
   <view class="content" wx:if="{{!loading}}">
-    <scroll-view class="sidebar" scroll-y show-scrollbar="{{false}}">
+    <scroll-view class="sidebar" scroll-y show-scrollbar="{{false}}" scroll-into-view="{{sidebarToView}}">
       <view
         wx:for="{{viewCategories}}"
         wx:key="id"
+        id="menu-tab-{{item.id}}"
         class="category-item {{currentCategory === item.id ? 'active' : ''}}"
         bindtap="switchCategory"
         data-id="{{item.id}}"
@@ -40,7 +41,13 @@
       <view style="height: 100rpx"></view>
     </scroll-view>
 
-    <scroll-view class="menu-list" scroll-y scroll-into-view="{{toView}}" scroll-with-animation>
+    <scroll-view
+      class="menu-list"
+      scroll-y
+      scroll-into-view="{{toView}}"
+      scroll-with-animation
+      bindscroll="handleMenuScroll"
+    >
       <view wx:if="{{viewCategories.length === 0}}" class="empty-state">
         <text class="empty-title">未找到匹配菜品</text>
         <text class="empty-desc">可尝试更换关键词，或清空搜索</text>
@@ -65,14 +72,17 @@
                   <text class="price price-font">{{dish.priceFen / 100}}</text>
                 </view>
 
-                <view class="action-area">
+                <view class="action-area" wx:if="{{dish.needSpec}}">
                   <button
                     class="spec-btn"
                     bindtap="openSpec"
                     data-id="{{dish.id}}"
                     disabled="{{dish.soldOut || !dish.onSale}}"
                   >选规格</button>
+                  <text wx:if="{{cart[dish.id] > 0}}" class="spec-count">已选{{cart[dish.id]}}</text>
+                </view>
 
+                <view class="action-area" wx:else>
                   <view class="stepper">
                     <view
                       wx:if="{{cart[dish.id] > 0}}"
@@ -111,17 +121,22 @@
         <text class="spec-price">¥{{specDish.priceFen / 100}}</text>
       </view>
 
-      <view class="spec-section">
-        <text class="spec-label">口味（占位）</text>
+      <view class="spec-section" wx:for="{{specGroups}}" wx:key="key" wx:for-item="group" wx:for-index="groupIndex">
+        <text class="spec-label">{{group.label}}</text>
         <view class="taste-list">
           <view
-            wx:for="{{specTasteOptions}}"
+            wx:for="{{group.options}}"
             wx:key="*this"
-            class="taste-chip {{specTasteIndex === index ? 'active' : ''}}"
-            data-index="{{index}}"
-            bindtap="selectSpecTaste"
+            class="taste-chip {{specSelections[groupIndex] === index ? 'active' : ''}}"
+            data-group-index="{{groupIndex}}"
+            data-option-index="{{index}}"
+            bindtap="selectSpecOption"
           >{{item}}</view>
         </view>
+      </view>
+
+      <view class="spec-selected" wx:if="{{specSummary}}">
+        <text>已选：{{specSummary}}</text>
       </view>
 
       <view class="spec-section">

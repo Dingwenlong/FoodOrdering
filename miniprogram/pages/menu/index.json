@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "菜单",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "disableScroll": true
 }

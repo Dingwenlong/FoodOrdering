@@ -91,7 +91,10 @@
           bindtap="handleUrge"
           loading="{{urgeLoading}}"
         >催单</button>
-        <button class="pay-btn neon-btn" bindtap="goMenu">继续点餐</button>
+        <button
+          class="pay-btn neon-btn {{order.status === 'PAID' || order.status === 'COOKING' ? 'full-row' : ''}}"
+          bindtap="goMenu"
+        >继续点餐</button>
       </view>
     </view>
   </block>
