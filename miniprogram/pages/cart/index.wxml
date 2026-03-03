@@ -1,8 +1,8 @@
 <view class="container">
-  <scroll-view class="cart-list" scroll-y wx:if="{{items.length > 0}}">
+  <scroll-view class="cart-list" scroll-y wx:if="{{items.length > 0}}" style="max-height: {{contentMaxHeightPx}}px;">
     <view class="list-header">
       <text class="list-title">购物车</text>
-      <text class="clear-btn" bindtap="clearCart">清空</text>
+      <button class="clear-btn" bindtap="clearCart">清空</button>
     </view>
 
     <view class="error-box" wx:if="{{errorMsg}}">{{errorMsg}}</view>
@@ -47,12 +47,12 @@
         value="{{remark}}"
         maxlength="{{remarkLimit}}"
         bindinput="handleRemarkInput"
+        adjust-position="true"
+        cursor-spacing="16"
         placeholder="可填写忌口、口味、上菜节奏等"
         placeholder-class="remark-placeholder"
       />
     </view>
-
-    <view style="height: 220rpx"></view>
   </scroll-view>
 
   <view class="empty-cart" wx:else>
@@ -65,7 +65,7 @@
     </button>
   </view>
 
-  <view class="footer glass-card-no-radius safe-area-bottom" wx:if="{{items.length > 0}}">
+  <view class="footer glass-card-no-radius safe-area-bottom" wx:if="{{items.length > 0}}" style="bottom: {{keyboardHeightPx}}px;">
     <view class="amount-lines">
       <view class="amount-row">
         <text class="row-label">小计</text>

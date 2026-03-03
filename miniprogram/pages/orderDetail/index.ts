@@ -13,6 +13,7 @@ Page({
     urgeLoading: false,
     loading: false,
     errorMsg: '',
+    contentMaxHeightPx: 9999,
   },
 
   onLoad(options: Record<string, string>) {
@@ -24,11 +25,46 @@ Page({
     this.fetchOrder(orderId);
   },
 
+  onReady() {
+    this.recalcLayout();
+  },
+
   onShow() {
     const orderId = this.data.order?.id;
     if (orderId) {
       this.fetchOrder(orderId);
     }
+  },
+
+  onResize() {
+    this.recalcLayout();
+  },
+
+  rpxToPx(rpx: number) {
+    const sys = wx.getSystemInfoSync();
+    return (sys.windowWidth * rpx) / 750;
+  },
+
+  safeBottomInsetPx() {
+    const sys = wx.getSystemInfoSync();
+    const safeArea = (sys as any).safeArea as { bottom: number } | undefined;
+    if (!safeArea || !Number.isFinite(safeArea.bottom)) return 0;
+    return Math.max(0, Math.floor(sys.windowHeight - safeArea.bottom));
+  },
+
+  recalcLayout() {
+    const sys = wx.getSystemInfoSync();
+    const safeGapPx = this.rpxToPx(68);
+    const safeBottomInsetPx = this.safeBottomInsetPx();
+
+    wx.createSelectorQuery()
+      .select('.footer-action')
+      .boundingClientRect((rect) => {
+        const footerHeightPx = rect && typeof rect.height === 'number' ? rect.height : 0;
+        const maxHeight = sys.windowHeight - footerHeightPx - safeGapPx - safeBottomInsetPx;
+        this.setData({ contentMaxHeightPx: Math.max(240, Math.floor(maxHeight)) });
+      })
+      .exec();
   },
 
   async fetchOrder(id: string) {
@@ -38,11 +74,13 @@ Page({
       const order = res.data;
       this.setData({ order });
       this.updateStatusUI(order.status);
+      setTimeout(() => this.recalcLayout(), 0);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '订单加载失败';
       this.setData({ errorMsg: msg });
     } finally {
       this.setData({ loading: false });
+      setTimeout(() => this.recalcLayout(), 0);
     }
   },
 

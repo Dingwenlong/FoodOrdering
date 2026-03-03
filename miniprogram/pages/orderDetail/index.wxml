@@ -1,85 +1,100 @@
-<view class="container">
-  <view class="loading-state" wx:if="{{loading}}">订单加载中...</view>
-  <view class="error-state" wx:if="{{!loading && errorMsg}}">{{errorMsg}}</view>
+<view class="container page-root">
+  <scroll-view class="page-scroll content-scroll" scroll-y style="max-height: {{contentMaxHeightPx}}px;">
+    <view class="loading-state" wx:if="{{loading}}">订单加载中...</view>
+    <view class="error-state" wx:if="{{!loading && errorMsg}}">{{errorMsg}}</view>
 
-  <block wx:if="{{order}}">
-    <view class="status-card-wrapper">
-      <view class="status-card glass-card">
-        <view class="status-header">
-          <view class="status-glow" style="background: {{statusColor}}"></view>
-          <icon type="{{statusIcon}}" size="56" color="{{statusColor}}"></icon>
-          <text class="status-text">{{statusText}}</text>
-        </view>
+    <block wx:if="{{order}}">
+      <view class="status-card-wrapper">
+        <view class="status-card glass-card">
+          <view class="status-header">
+            <view class="status-glow" style="background: {{statusColor}}"></view>
+            <icon type="{{statusIcon}}" size="56" color="{{statusColor}}"></icon>
+            <text class="status-text">{{statusText}}</text>
+          </view>
 
-        <view class="status-desc" wx:if="{{order.status === 'PENDING_PAY'}}">
-          <text>请尽快完成支付，系统将自动刷新订单状态</text>
-        </view>
+          <view class="status-desc" wx:if="{{order.status === 'PENDING_PAY'}}">
+            <text>请尽快完成支付，系统将自动刷新订单状态</text>
+          </view>
 
-        <view class="progress-bar" wx:if="{{order.status !== 'CANCELED'}}">
-          <view class="step {{order.status === 'PENDING_PAY' || order.status === 'PAID' || order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
-          <view class="line {{order.status === 'PAID' || order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
-          <view class="step {{order.status === 'PAID' || order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
-          <view class="line {{order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
-          <view class="step {{order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
-          <view class="line {{order.status === 'DONE' ? 'active' : ''}}"></view>
-          <view class="step {{order.status === 'DONE' ? 'active' : ''}}"></view>
-        </view>
-        <view class="progress-labels" wx:if="{{order.status !== 'CANCELED'}}">
-          <text>待支付</text>
-          <text>已支付</text>
-          <text>制作中</text>
-          <text>已完成</text>
-        </view>
-      </view>
-    </view>
-
-    <view class="order-info glass-card">
-      <view class="section-title">订单明细</view>
-      <view class="item-list">
-        <view wx:for="{{order.items}}" wx:key="dishId" class="order-item">
-          <text class="item-name">{{item.dishName}}</text>
-          <text class="item-qty">x{{item.qty}}</text>
-          <text class="item-price price-font">¥{{item.unitPriceFen * item.qty / 100}}</text>
+          <view class="progress-bar" wx:if="{{order.status !== 'CANCELED'}}">
+            <view class="step {{order.status === 'PENDING_PAY' || order.status === 'PAID' || order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
+            <view class="line {{order.status === 'PAID' || order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
+            <view class="step {{order.status === 'PAID' || order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
+            <view class="line {{order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
+            <view class="step {{order.status === 'COOKING' || order.status === 'DONE' ? 'active' : ''}}"></view>
+            <view class="line {{order.status === 'DONE' ? 'active' : ''}}"></view>
+            <view class="step {{order.status === 'DONE' ? 'active' : ''}}"></view>
+          </view>
+          <view class="progress-labels" wx:if="{{order.status !== 'CANCELED'}}">
+            <text>待支付</text>
+            <text>已支付</text>
+            <text>制作中</text>
+            <text>已完成</text>
+          </view>
         </view>
       </view>
-      <view class="divider"></view>
-      <view class="total-row">
-        <text>合计</text>
-        <view class="total-amount">
-          <text class="currency">¥</text>
-          <text class="amount price-font">{{order.totalPriceFen / 100}}</text>
+
+      <view class="order-info glass-card">
+        <view class="section-title">订单明细</view>
+        <view class="item-list">
+          <view wx:for="{{order.items}}" wx:key="dishId" class="order-item">
+            <text class="item-name">{{item.dishName}}</text>
+            <text class="item-qty">x{{item.qty}}</text>
+            <text class="item-price price-font">¥{{item.unitPriceFen * item.qty / 100}}</text>
+          </view>
+        </view>
+        <view class="divider"></view>
+        <view class="total-row">
+          <text>合计</text>
+          <view class="total-amount">
+            <text class="currency">¥</text>
+            <text class="amount price-font">{{order.totalPriceFen / 100}}</text>
+          </view>
         </view>
       </view>
-    </view>
 
-    <view class="order-meta glass-card">
-      <view class="meta-row">
-        <text class="label">订单号</text>
-        <text class="value copyable" bindtap="copyId" data-id="{{order.id}}">{{order.id}} <text class="icon-copy">📄</text></text>
+      <view class="order-meta glass-card">
+        <view class="meta-row">
+          <text class="label">订单号</text>
+          <text class="value copyable" bindtap="copyId" data-id="{{order.id}}">{{order.id}} <text class="icon-copy">📄</text></text>
+        </view>
+        <view class="meta-row">
+          <text class="label">下单时间</text>
+          <text class="value">{{order.createdAt}}</text>
+        </view>
+        <view class="meta-row">
+          <text class="label">桌号</text>
+          <text class="value">{{order.tableName || order.tableId}}</text>
+        </view>
+        <view class="meta-row" wx:if="{{order.remark}}">
+          <text class="label">备注</text>
+          <text class="value">{{order.remark}}</text>
+        </view>
       </view>
-      <view class="meta-row">
-        <text class="label">下单时间</text>
-        <text class="value">{{order.createdAt}}</text>
-      </view>
-      <view class="meta-row">
-        <text class="label">桌号</text>
-        <text class="value">{{order.tableName || order.tableId}}</text>
-      </view>
-      <view class="meta-row" wx:if="{{order.remark}}">
-        <text class="label">备注</text>
-        <text class="value">{{order.remark}}</text>
-      </view>
-    </view>
+    </block>
+  </scroll-view>
 
-    <view class="footer-action safe-area-bottom" wx:if="{{order.status === 'PENDING_PAY'}}">
+  <view class="footer-action safe-area-bottom" wx:if="{{order && order.status === 'PENDING_PAY'}}">
+    <button
+      class="pay-btn neon-btn"
+      bindtap="handlePay"
+      loading="{{paying}}"
+      hover-class="btn-hover"
+    >
+      立即支付 ¥{{order.totalPriceFen / 100}}
+    </button>
+  </view>
+
+  <view class="footer-action safe-area-bottom" wx:if="{{order && order.status !== 'PENDING_PAY'}}">
+    <view class="action-grid {{order.status === 'PAID' || order.status === 'COOKING' ? 'triple' : ''}}">
+      <button class="secondary-btn" bindtap="refreshOrder">刷新状态</button>
       <button
-        class="pay-btn neon-btn"
-        bindtap="handlePay"
-        loading="{{paying}}"
-        hover-class="btn-hover"
-      >
-        立即支付 ¥{{order.totalPriceFen / 100}}
-      </button>
+        wx:if="{{order.status === 'PAID' || order.status === 'COOKING'}}"
+        class="secondary-btn urge-btn"
+        bindtap="handleUrge"
+        loading="{{urgeLoading}}"
+      >催单</button>
+      <button class="pay-btn neon-btn" bindtap="goMenu">继续点餐</button>
     </view>
 
     <view class="footer-action safe-area-bottom" wx:else>

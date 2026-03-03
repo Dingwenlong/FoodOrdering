@@ -18,16 +18,83 @@ Page({
     submitting: false,
     loading: false,
     errorMsg: '',
+    contentMaxHeightPx: 9999,
+    keyboardHeightPx: 0,
   },
 
   onLoad(options: Record<string, string>) {
     this.resolveSession(options);
+
+    (this as any)._keyboardHandler = (res: { height?: number }) => {
+      const height = Math.max(0, Math.floor(Number(res?.height || 0)));
+      if (height === this.data.keyboardHeightPx) return;
+      this.setData({ keyboardHeightPx: height }, () => this.recalcLayout());
+    };
+  },
+
+  onReady() {
+    this.recalcLayout();
   },
 
   onShow() {
+    this.attachKeyboard();
     const remark = String(wx.getStorageSync(STORAGE_KEYS.cartRemark) || '');
     this.setData({ remark, remarkLength: remark.length });
     this.loadCart();
+  },
+
+  onHide() {
+    this.detachKeyboard();
+  },
+
+  onUnload() {
+    this.detachKeyboard();
+  },
+
+  onResize() {
+    this.recalcLayout();
+  },
+
+  attachKeyboard() {
+    const self = this as any;
+    if (self._kbdAttached) return;
+    wx.onKeyboardHeightChange(self._keyboardHandler);
+    self._kbdAttached = true;
+  },
+
+  detachKeyboard() {
+    const self = this as any;
+    if (!self._kbdAttached) return;
+    wx.offKeyboardHeightChange(self._keyboardHandler);
+    self._kbdAttached = false;
+  },
+
+  rpxToPx(rpx: number) {
+    const sys = wx.getSystemInfoSync();
+    return (sys.windowWidth * rpx) / 750;
+  },
+
+  safeBottomInsetPx() {
+    const sys = wx.getSystemInfoSync();
+    const safeArea = (sys as any).safeArea as { bottom: number } | undefined;
+    if (!safeArea || !Number.isFinite(safeArea.bottom)) return 0;
+    return Math.max(0, Math.floor(sys.windowHeight - safeArea.bottom));
+  },
+
+  recalcLayout() {
+    const sys = wx.getSystemInfoSync();
+    const safeGapPx = this.rpxToPx(68);
+    const safeBottomInsetPx = this.safeBottomInsetPx();
+    const keyboardHeightPx = Math.max(0, Math.floor(Number(this.data.keyboardHeightPx || 0)));
+
+    wx.createSelectorQuery()
+      .select('.footer')
+      .boundingClientRect((rect) => {
+        const footerHeightPx = rect && typeof rect.height === 'number' ? rect.height : 0;
+        const maxHeight = sys.windowHeight - footerHeightPx - safeGapPx - safeBottomInsetPx - keyboardHeightPx;
+        this.setData({ contentMaxHeightPx: Math.max(240, Math.floor(maxHeight)) });
+      })
+      .exec();
   },
 
   resolveSession(options: Record<string, string>) {
@@ -51,6 +118,7 @@ Page({
 
     if (dishIds.length === 0) {
       this.setData({ items: [], totalPrice: 0, payablePrice: 0, errorMsg: '' });
+      setTimeout(() => this.recalcLayout(), 0);
       return;
     }
 
@@ -90,6 +158,7 @@ Page({
       wx.showToast({ title: msg, icon: 'none' });
     } finally {
       this.setData({ loading: false });
+      setTimeout(() => this.recalcLayout(), 0);
     }
   },
 

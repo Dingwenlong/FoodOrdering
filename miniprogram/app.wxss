@@ -17,6 +17,17 @@ page {
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica,
     Segoe UI, Arial, Roboto, 'PingFang SC', 'miui', 'Hiragino Sans GB', 'Microsoft Yahei',
     sans-serif;
+
+  --tap-min: 88rpx;
+  --font-body: 28rpx;
+  --font-title: 32rpx;
+  --line-body: 1.4;
+  --page-px: 32rpx;
+  --page-py: 32rpx;
+  --safe-bottom-gap: 68rpx;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --content-max-width: 100%;
   
   /* 全局深色渐变背景 */
   background: radial-gradient(at 0% 0%, #1a1a2e 0, transparent 50%), 
@@ -28,6 +39,90 @@ page {
   color: var(--glass-text-main);
   box-sizing: border-box;
   min-height: 100vh;
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+  overflow-x: hidden;
+}
+
+@media (min-width: 415px) {
+  page {
+    --page-px: 40rpx;
+  }
+}
+
+@media (min-width: 768px) {
+  page {
+    --page-px: 48rpx;
+    --font-title: 36rpx;
+    --content-max-width: 900rpx;
+  }
+}
+
+view,
+text,
+scroll-view,
+input,
+textarea,
+button,
+image {
+  box-sizing: border-box;
+}
+
+button {
+  margin: 0;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 0 24rpx;
+  border-radius: 16rpx;
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+}
+
+button::after {
+  border: none;
+}
+
+button[disabled] {
+  opacity: 0.55;
+}
+
+input,
+textarea {
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+  min-height: var(--tap-min);
+}
+
+.safe-area-sides {
+  padding-left: var(--page-px);
+  padding-right: var(--page-px);
+}
+
+.safe-area-bottom {
+  padding-bottom: calc(var(--safe-bottom-gap) + var(--safe-bottom));
+}
+
+.safe-area {
+  padding-left: var(--page-px);
+  padding-right: var(--page-px);
+  padding-bottom: calc(var(--safe-bottom-gap) + var(--safe-bottom));
+}
+
+.page-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-scroll {
+  flex: 1;
+  min-height: 0;
 }
 
 .container {
