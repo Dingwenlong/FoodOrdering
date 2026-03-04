@@ -36,6 +36,11 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
             ServerHttpRequest request,
             ServerHttpResponse response
     ) {
+        String path = request.getURI().getPath();
+        if (path != null && (path.contains("/v3/api-docs") || path.contains("/swagger-ui") || path.endsWith("/swagger-ui.html"))) {
+            return body;
+        }
+
         if (body instanceof ApiResponse<?>) {
             return body;
         }

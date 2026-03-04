@@ -1,12 +1,19 @@
 package com.foodordering.common.api;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.Instant;
 
+@Schema(description = "统一 API 响应结构")
 public class ApiResponse<T> {
 
+    @Schema(description = "状态码 (0 表示成功)", example = "0")
     private int code;
+    @Schema(description = "响应消息", example = "OK")
     private String message;
+    @Schema(description = "响应数据")
     private T data;
+    @Schema(description = "响应时间戳")
     private String timestamp;
 
     public ApiResponse() {

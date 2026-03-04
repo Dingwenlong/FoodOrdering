@@ -69,6 +69,19 @@ mybatis-plus:
       logic-not-delete-value: 0
   mapper-locations: classpath*:mapper/**/*.xml
 
+springdoc:
+  packages-to-scan: com.foodordering.controller
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    urls-primary-name: 0.全部接口
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+    default-models-expand-depth: 1
+    doc-expansion: list
+
 logging:
   level:
     com.foodordering: debug
