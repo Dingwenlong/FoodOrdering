@@ -32,8 +32,8 @@ const isActive = (path: string) => route.path.startsWith(path)
   <aside class="flex flex-col h-full glass-card rounded-l-none border-y-0 border-l-0 border-r border-white/10 bg-black/20 backdrop-blur-xl">
     <!-- Logo Area -->
     <div class="h-16 flex items-center px-6 border-b border-white/5">
-      <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-cyan-500/20">
-        <span class="font-bold text-white text-lg">F</span>
+      <div class="w-8 h-8 mr-3 rounded-lg overflow-hidden ring-1 ring-white/10 shadow-lg shadow-cyan-500/20 bg-white/5">
+        <img src="/Logo.png" alt="FoodOS Logo" class="w-full h-full object-cover" />
       </div>
       <span class="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
         FoodOS

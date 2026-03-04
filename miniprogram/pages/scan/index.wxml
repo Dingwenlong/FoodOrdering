@@ -5,7 +5,7 @@
   <view class="welcome-card glass-card">
     <view class="header-text">
       <view class="logo-area">
-        <text class="logo-icon">🍽️</text>
+        <image class="logo-image" src="/assets/Logo.png" mode="aspectFill"></image>
       </view>
       <text class="title">未来餐厅</text>
       <text class="subtitle">扫码绑定桌台，快速开始点餐</text>

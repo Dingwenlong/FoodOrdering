@@ -53,6 +53,7 @@ FoodOrdering/
 - `backend` 已补齐管理端读取类接口（`/api/v1/admin/*`），可支撑管理端切换真实接口联调。
 - `backend` 已补齐管理端核心写操作接口（公告、分类、菜品增删改，用户/留言/工单状态更新，订单状态更新）。
 - `backend` 已启用管理端真实鉴权：登录签发 JWT，`/api/v1/admin/auth/login` 之外的管理接口统一校验 `Authorization: Bearer <token>`。
+- `backend` 已补充管理端角色/资源授权：针对公告、用户状态、菜单、订单状态、留言状态、工单状态等写操作按角色进行权限校验。
 - 管理员密码已支持 BCrypt 哈希校验，并兼容历史明文种子自动升级。
 - `backend` 已补齐小程序真实接口：绑定桌台、菜单、创建订单、订单详情、微信支付预下单与支付确认。
 - `miniprogram` 已补齐扫码解析/手动绑桌、菜单搜索与售罄态、购物车备注与清空、订单详情支付闭环。
@@ -162,6 +163,7 @@ docker compose up -d
 - 后端菜品接口：`backend/src/main/java/com/foodordering/controller/dish/DishController.java`
 - 后端统一响应封装：`backend/src/main/java/com/foodordering/common/api/ApiResponse.java`
 - 后端响应/异常处理：`backend/src/main/java/com/foodordering/config/ApiResponseAdvice.java`、`backend/src/main/java/com/foodordering/config/GlobalExceptionHandler.java`
+- 后端管理端授权：`backend/src/main/java/com/foodordering/auth/AdminAuthorize.java`、`backend/src/main/java/com/foodordering/auth/AdminAuthorizationService.java`
 - 后端配置：`backend/src/main/resources/application.yml`
 - 后端建表脚本：`backend/src/main/resources/schema.sql`
 - 小程序请求封装：`miniprogram/utils/request.ts`
@@ -203,4 +205,6 @@ docker compose up -d
 
 ## 10. 后续建议
 
-1. 在 JWT 基础上补充权限粒度（按角色/资源进行操作授权），不仅校验“是否登录”。
+1. 为角色权限引入配置化来源（数据库或配置中心），减少硬编码并支持动态调整。
+2. 在管理端页面按权限码做按钮级可见性控制，避免前端展示无权操作入口。
+3. 增加授权失败审计日志与告警，便于追踪越权尝试。

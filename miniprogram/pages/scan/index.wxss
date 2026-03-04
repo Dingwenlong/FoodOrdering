@@ -67,8 +67,9 @@
   border: 1rpx solid rgba(255, 255, 255, 0.2);
 }
 
-.logo-icon {
-  font-size: 56rpx;
+.logo-image {
+  width: 112rpx;
+  height: 112rpx;
 }
 
 .header-text {

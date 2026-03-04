@@ -1,6 +1,8 @@
 package com.foodordering.controller.admin;
 
 import com.foodordering.auth.AdminAuthInterceptor;
+import com.foodordering.auth.AdminAuthorize;
+import com.foodordering.auth.AdminPermission;
 import com.foodordering.dto.admin.AdminDtos;
 import com.foodordering.entity.AdminUserAccount;
 import com.foodordering.service.admin.AdminService;
@@ -45,11 +47,13 @@ public class AdminController {
     }
 
     @PostMapping("/notices")
+    @AdminAuthorize(AdminPermission.NOTICE_MANAGE)
     public AdminDtos.NoticeView createNotice(@RequestBody AdminDtos.NoticeUpsertRequest request) {
         return adminService.createNotice(request);
     }
 
     @PutMapping("/notices/{noticeId}")
+    @AdminAuthorize(AdminPermission.NOTICE_MANAGE)
     public AdminDtos.NoticeView updateNotice(
             @PathVariable("noticeId") String noticeId,
             @RequestBody AdminDtos.NoticeUpsertRequest request
@@ -58,6 +62,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/notices/{noticeId}")
+    @AdminAuthorize(AdminPermission.NOTICE_MANAGE)
     public void deleteNotice(@PathVariable("noticeId") String noticeId) {
         adminService.deleteNotice(noticeId);
     }
@@ -68,6 +73,7 @@ public class AdminController {
     }
 
     @PatchMapping("/users/{userId}/status")
+    @AdminAuthorize(AdminPermission.USER_STATUS_UPDATE)
     public AdminDtos.UserStatusView updateUserStatus(
             @PathVariable("userId") String userId,
             @RequestBody AdminDtos.UserStatusUpdateRequest request
@@ -81,11 +87,13 @@ public class AdminController {
     }
 
     @PostMapping("/categories")
+    @AdminAuthorize(AdminPermission.MENU_MANAGE)
     public AdminDtos.CategoryView createCategory(@RequestBody AdminDtos.CategoryUpsertRequest request) {
         return adminService.createCategory(request);
     }
 
     @PutMapping("/categories/{categoryId}")
+    @AdminAuthorize(AdminPermission.MENU_MANAGE)
     public AdminDtos.CategoryView updateCategory(
             @PathVariable("categoryId") String categoryId,
             @RequestBody AdminDtos.CategoryUpsertRequest request
@@ -94,16 +102,19 @@ public class AdminController {
     }
 
     @DeleteMapping("/categories/{categoryId}")
+    @AdminAuthorize(AdminPermission.MENU_MANAGE)
     public void deleteCategory(@PathVariable("categoryId") String categoryId) {
         adminService.deleteCategory(categoryId);
     }
 
     @PostMapping("/dishes")
+    @AdminAuthorize(AdminPermission.MENU_MANAGE)
     public AdminDtos.DishView createDish(@RequestBody AdminDtos.DishUpsertRequest request) {
         return adminService.createDish(request);
     }
 
     @PutMapping("/dishes/{dishId}")
+    @AdminAuthorize(AdminPermission.MENU_MANAGE)
     public AdminDtos.DishView updateDish(
             @PathVariable("dishId") String dishId,
             @RequestBody AdminDtos.DishUpsertRequest request
@@ -112,6 +123,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/dishes/{dishId}")
+    @AdminAuthorize(AdminPermission.MENU_MANAGE)
     public void deleteDish(@PathVariable("dishId") String dishId) {
         adminService.deleteDish(dishId);
     }
@@ -122,6 +134,7 @@ public class AdminController {
     }
 
     @PostMapping("/orders/{orderId}/status")
+    @AdminAuthorize(AdminPermission.ORDER_STATUS_UPDATE)
     public AdminDtos.OrderView updateOrderStatus(
             @PathVariable("orderId") String orderId,
             @RequestBody AdminDtos.UpdateOrderStatusRequest request
@@ -145,6 +158,7 @@ public class AdminController {
     }
 
     @PatchMapping("/feedbacks/{feedbackId}/status")
+    @AdminAuthorize(AdminPermission.FEEDBACK_STATUS_UPDATE)
     public AdminDtos.FeedbackView updateFeedbackStatus(
             @PathVariable("feedbackId") String feedbackId,
             @RequestBody AdminDtos.FeedbackStatusUpdateRequest request
@@ -158,6 +172,7 @@ public class AdminController {
     }
 
     @PatchMapping("/support/tickets/{ticketId}/status")
+    @AdminAuthorize(AdminPermission.SUPPORT_TICKET_STATUS_UPDATE)
     public AdminDtos.SupportTicketView updateSupportTicketStatus(
             @PathVariable("ticketId") String ticketId,
             @RequestBody AdminDtos.SupportTicketStatusUpdateRequest request

@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
@@ -19,13 +20,16 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
 
     private final AdminJwtTokenService adminJwtTokenService;
     private final AdminUserAccountMapper adminUserAccountMapper;
+    private final AdminAuthorizationService adminAuthorizationService;
 
     public AdminAuthInterceptor(
             AdminJwtTokenService adminJwtTokenService,
-            AdminUserAccountMapper adminUserAccountMapper
+            AdminUserAccountMapper adminUserAccountMapper,
+            AdminAuthorizationService adminAuthorizationService
     ) {
         this.adminJwtTokenService = adminJwtTokenService;
         this.adminUserAccountMapper = adminUserAccountMapper;
+        this.adminAuthorizationService = adminAuthorizationService;
     }
 
     @Override
@@ -45,6 +49,7 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
         if (account == null || account.getStatus() == null || account.getStatus() != 1) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "账号不可用，请重新登录");
         }
+        validatePermission(account, handler);
 
         request.setAttribute(CURRENT_ADMIN_ATTR, account);
         return true;
@@ -75,5 +80,21 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
             return null;
         }
         return value.substring(7).trim();
+    }
+
+    private void validatePermission(AdminUserAccount account, Object handler) {
+        if (!(handler instanceof HandlerMethod handlerMethod)) {
+            return;
+        }
+        AdminAuthorize authorize = handlerMethod.getMethodAnnotation(AdminAuthorize.class);
+        if (authorize == null) {
+            authorize = handlerMethod.getBeanType().getAnnotation(AdminAuthorize.class);
+        }
+        if (authorize == null) {
+            return;
+        }
+        if (!adminAuthorizationService.hasAllPermissions(account.getRoleName(), authorize.value())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权限执行该操作");
+        }
     }
 }

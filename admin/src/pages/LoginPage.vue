@@ -35,10 +35,8 @@ const handleLogin = async () => {
     <!-- 登录卡片 -->
     <div class="relative z-10 p-8 w-full max-w-md border-t glass-card md:p-10 border-white/20">
       <div class="mb-10 text-center">
-        <div class="flex justify-center items-center mx-auto mb-4 w-16 h-16 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-2xl shadow-lg shadow-cyan-500/30">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+        <div class="flex justify-center items-center mx-auto mb-4 w-16 h-16 rounded-2xl overflow-hidden shadow-lg shadow-cyan-500/30 ring-1 ring-white/20 bg-white/10">
+          <img src="/Logo.png" alt="FoodOS Logo" class="w-full h-full object-cover" />
         </div>
         <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">管理后台</h1>
         <p class="mt-2 text-sm text-white/50">登录以管理您的数字餐饮帝国</p>
