@@ -96,5 +96,21 @@
       >催单</button>
       <button class="pay-btn neon-btn" bindtap="goMenu">继续点餐</button>
     </view>
-  </view>
+
+    <view class="footer-action safe-area-bottom" wx:else>
+      <view class="action-grid {{order.status === 'PAID' || order.status === 'COOKING' ? 'triple' : ''}}">
+        <button class="secondary-btn" bindtap="refreshOrder">刷新状态</button>
+        <button
+          wx:if="{{order.status === 'PAID' || order.status === 'COOKING'}}"
+          class="secondary-btn urge-btn"
+          bindtap="handleUrge"
+          loading="{{urgeLoading}}"
+        >催单</button>
+        <button
+          class="pay-btn neon-btn {{order.status === 'PAID' || order.status === 'COOKING' ? 'full-row' : ''}}"
+          bindtap="goMenu"
+        >继续点餐</button>
+      </view>
+    </view>
+  </block>
 </view>
