@@ -60,6 +60,27 @@ public final class AdminDtos {
     ) {
     }
 
+    public record AppUserDetailView(
+            String id,
+            String nickname,
+            String phone,
+            String email,
+            String avatar,
+            String createdAt,
+            String lastActiveAt,
+            int orderCount,
+            String status
+    ) {
+    }
+
+    public record PageResult<T>(
+            List<T> list,
+            long total,
+            int page,
+            int pageSize
+    ) {
+    }
+
     public record UserStatusView(String id, String status) {
     }
 
@@ -134,6 +155,17 @@ public final class AdminDtos {
             String topic,
             String lastMessageAt,
             String status
+    ) {
+    }
+
+    public record SupportTicketDetailView(
+            String id,
+            String nickname,
+            String topic,
+            String lastMessageAt,
+            String status,
+            String createdAt,
+            String updatedAt
     ) {
     }
 }

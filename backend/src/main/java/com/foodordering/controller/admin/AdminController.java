@@ -6,6 +6,7 @@ import com.foodordering.auth.AdminPermission;
 import com.foodordering.dto.admin.AdminDtos;
 import com.foodordering.entity.AdminUserAccount;
 import com.foodordering.service.admin.AdminService;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -68,8 +69,27 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    public List<AdminDtos.AppUserView> users() {
-        return adminService.listUsers();
+    public Object users(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "status", required = false) String status
+    ) {
+        boolean usePaged = page != null
+                || pageSize != null
+                || StringUtils.hasText(keyword)
+                || StringUtils.hasText(status);
+        if (!usePaged) {
+            return adminService.listUsers();
+        }
+        int resolvedPage = page == null ? 1 : page;
+        int resolvedPageSize = pageSize == null ? 20 : pageSize;
+        return adminService.listUsersPaged(resolvedPage, resolvedPageSize, keyword, status);
+    }
+
+    @GetMapping("/users/{userId}")
+    public AdminDtos.AppUserDetailView userDetail(@PathVariable("userId") String userId) {
+        return adminService.getUserDetail(userId);
     }
 
     @PatchMapping("/users/{userId}/status")
@@ -167,8 +187,27 @@ public class AdminController {
     }
 
     @GetMapping("/support/tickets")
-    public List<AdminDtos.SupportTicketView> supportTickets() {
-        return adminService.listSupportTickets();
+    public Object supportTickets(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "status", required = false) String status
+    ) {
+        boolean usePaged = page != null
+                || pageSize != null
+                || StringUtils.hasText(keyword)
+                || StringUtils.hasText(status);
+        if (!usePaged) {
+            return adminService.listSupportTickets();
+        }
+        int resolvedPage = page == null ? 1 : page;
+        int resolvedPageSize = pageSize == null ? 20 : pageSize;
+        return adminService.listSupportTicketsPaged(resolvedPage, resolvedPageSize, keyword, status);
+    }
+
+    @GetMapping("/support/tickets/{ticketId}")
+    public AdminDtos.SupportTicketDetailView supportTicketDetail(@PathVariable("ticketId") String ticketId) {
+        return adminService.getSupportTicketDetail(ticketId);
     }
 
     @PatchMapping("/support/tickets/{ticketId}/status")

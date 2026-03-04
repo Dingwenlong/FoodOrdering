@@ -50,6 +50,18 @@ export type AppUser = {
   status: 'ACTIVE' | 'INACTIVE'
 }
 
+export type AppUserDetail = AppUser & {
+  email?: string
+  avatar?: string
+}
+
+export type PageResult<T> = {
+  list: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export type Category = {
   id: ID
   name: string
@@ -95,4 +107,9 @@ export type SupportTicket = {
   topic: string
   lastMessageAt: string
   status: 'OPEN' | 'CLOSED'
+}
+
+export type SupportTicketDetail = SupportTicket & {
+  createdAt: string
+  updatedAt: string
 }

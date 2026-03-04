@@ -3,6 +3,7 @@ import { envBool } from '@/lib/env'
 import type {
   AdminUser,
   AppUser,
+  AppUserDetail,
   Category,
   Comment,
   Dish,
@@ -11,7 +12,9 @@ import type {
   Notice,
   Order,
   OrderStatus,
+  PageResult,
   SupportTicket,
+  SupportTicketDetail,
 } from '@/types'
 import {
   mockCreateDishApi,
@@ -26,7 +29,9 @@ import {
   mockListNotices,
   mockListOrders,
   mockListSupportTickets,
+  mockListSupportTicketsPaged,
   mockListUsers,
+  mockListUsersPaged,
   mockLogin,
   mockUpdateDishApi,
   mockUpdateFeedbackStatusApi,
@@ -34,6 +39,8 @@ import {
   mockUpdateNoticeApi,
   mockUpdateSupportTicketStatusApi,
   mockUpdateUserStatusApi,
+  mockGetUserDetail,
+  mockGetSupportTicketDetail,
 } from '@/mocks/api'
 
 export const ADMIN_TOKEN_KEY = 'admin_token'
@@ -146,6 +153,21 @@ export const api = {
     return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/users`))
   },
 
+  async listUsersPaged(params?: {
+    page?: number
+    pageSize?: number
+    keyword?: string
+    status?: AppUser['status']
+  }): Promise<PageResult<AppUser>> {
+    if (useMock()) return fromMock(() => mockListUsersPaged(params))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/users`, { params }))
+  },
+
+  async getUserDetail(userId: string): Promise<AppUserDetail> {
+    if (useMock()) return fromMock(() => mockGetUserDetail(userId))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/users/${userId}`))
+  },
+
   async listMenu(): Promise<{ categories: Category[]; dishes: Dish[] }> {
     if (useMock()) return fromMock(() => mockListMenu())
     return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/menu`))
@@ -179,6 +201,21 @@ export const api = {
   async listSupportTickets(): Promise<SupportTicket[]> {
     if (useMock()) return fromMock(() => mockListSupportTickets())
     return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/support/tickets`))
+  },
+
+  async listSupportTicketsPaged(params?: {
+    page?: number
+    pageSize?: number
+    keyword?: string
+    status?: SupportTicket['status']
+  }): Promise<PageResult<SupportTicket>> {
+    if (useMock()) return fromMock(() => mockListSupportTicketsPaged(params))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/support/tickets`, { params }))
+  },
+
+  async getSupportTicketDetail(ticketId: string): Promise<SupportTicketDetail> {
+    if (useMock()) return fromMock(() => mockGetSupportTicketDetail(ticketId))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/support/tickets/${ticketId}`))
   },
 
   async createNotice(payload: { title: string; content: string; isPinned: boolean }): Promise<Notice> {

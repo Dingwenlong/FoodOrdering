@@ -4,7 +4,8 @@ exports.request = exports.STORAGE_KEYS = void 0;
 const data_1 = require("../mock/data");
 const MOCK_FLAG_KEY = 'MP_USE_MOCK';
 const API_BASE_URL_KEY = 'MP_API_BASE_URL';
-const USE_MOCK = wx.getStorageSync(MOCK_FLAG_KEY) !== false;
+const MOCK_ORDERS_KEY = 'MP_MOCK_ORDERS';
+const MOCK_COMMENTS_KEY = 'MP_MOCK_COMMENTS';
 const BASE_URL = wx.getStorageSync(API_BASE_URL_KEY) || 'http://localhost:8080';
 const API_PREFIX = '/api/v1';
 exports.STORAGE_KEYS = {
@@ -14,10 +15,39 @@ exports.STORAGE_KEYS = {
     lastOrderId: 'lastOrderId',
 };
 const mockState = {
-    orders: cloneOrders(data_1.mockOrders),
+    orders: initMockOrders(),
+    comments: initMockComments(),
 };
 function cloneOrders(list) {
     return list.map((order) => (Object.assign(Object.assign({}, order), { items: order.items.map((item) => (Object.assign({}, item))) })));
+}
+function cloneComments(list) {
+    return list.map((item) => (Object.assign({}, item)));
+}
+function initMockOrders() {
+    const cached = wx.getStorageSync(MOCK_ORDERS_KEY);
+    if (Array.isArray(cached) && cached.length > 0) {
+        return cloneOrders(cached);
+    }
+    const seed = cloneOrders(data_1.mockOrders);
+    wx.setStorageSync(MOCK_ORDERS_KEY, seed);
+    return seed;
+}
+function initMockComments() {
+    const cached = wx.getStorageSync(MOCK_COMMENTS_KEY);
+    if (Array.isArray(cached) && cached.length > 0) {
+        return cloneComments(cached);
+    }
+    const seed = cloneComments(data_1.mockComments);
+    wx.setStorageSync(MOCK_COMMENTS_KEY, seed);
+    return seed;
+}
+function persistMockState() {
+    wx.setStorageSync(MOCK_ORDERS_KEY, cloneOrders(mockState.orders));
+    wx.setStorageSync(MOCK_COMMENTS_KEY, cloneComments(mockState.comments));
+}
+function shouldUseMock() {
+    return wx.getStorageSync(MOCK_FLAG_KEY) !== false;
 }
 const successEnvelope = (data) => ({
     code: 0,
@@ -214,6 +244,7 @@ function handleMockRequest(options) {
                 else if (path === '/orders' && method === 'POST') {
                     const order = buildMockOrder(body);
                     mockState.orders.unshift(order);
+                    persistMockState();
                     result = order;
                 }
                 else if (/^\/orders\/.+/.test(path) && method === 'GET') {
@@ -264,7 +295,50 @@ function handleMockRequest(options) {
                         throw new Error('订单不存在');
                     }
                     mockState.orders[index] = Object.assign(Object.assign({}, mockState.orders[index]), { status: 'PAID' });
+                    persistMockState();
                     result = mockState.orders[index];
+                }
+                else if (path === '/notices' && method === 'GET') {
+                    result = data_1.mockNotices;
+                }
+                else if (path === '/comments' && method === 'GET') {
+                    result = mockState.comments;
+                }
+                else if (path === '/comments' && method === 'POST') {
+                    const orderId = String(body.orderId || '').trim();
+                    const rating = Number(body.rating || 0);
+                    const content = String(body.content || '').trim();
+                    if (!orderId) {
+                        throw new Error('orderId 不能为空');
+                    }
+                    const order = mockState.orders.find((item) => item.id === orderId);
+                    if (!order) {
+                        throw new Error('订单不存在');
+                    }
+                    if (order.status !== 'DONE') {
+                        throw new Error('仅已完成订单可评价');
+                    }
+                    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+                        throw new Error('评分需在 1~5 之间');
+                    }
+                    if (!content) {
+                        throw new Error('评价内容不能为空');
+                    }
+                    const existed = mockState.comments.find((item) => String(item.orderId || '') === orderId);
+                    if (existed) {
+                        throw new Error('该订单已评价');
+                    }
+                    const newComment = {
+                        id: String(Date.now()),
+                        orderId,
+                        userName: '匿名用户',
+                        rating,
+                        content,
+                        createdAt: new Date().toISOString(),
+                    };
+                    mockState.comments.unshift(newComment);
+                    persistMockState();
+                    result = newComment;
                 }
                 else {
                     throw new Error(`Mock route not found: ${method} ${path}`);
@@ -279,7 +353,7 @@ function handleMockRequest(options) {
     });
 }
 const request = (options) => {
-    if (USE_MOCK) {
+    if (shouldUseMock()) {
         return handleMockRequest(options);
     }
     const method = getMethod(options);

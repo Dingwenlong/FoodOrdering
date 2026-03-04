@@ -1,6 +1,7 @@
 import type {
   AdminUser,
   AppUser,
+  AppUserDetail,
   Category,
   Comment,
   Dish,
@@ -9,7 +10,9 @@ import type {
   Notice,
   Order,
   OrderStatus,
+  PageResult,
   SupportTicket,
+  SupportTicketDetail,
 } from '@/types'
 import {
   mockCreateDish,
@@ -64,6 +67,45 @@ export async function mockListUsers(): Promise<AppUser[]> {
   return [...mockUsers]
 }
 
+export async function mockListUsersPaged(params?: {
+  page?: number
+  pageSize?: number
+  keyword?: string
+  status?: AppUser['status']
+}): Promise<PageResult<AppUser>> {
+  await delay(220)
+  const page = Math.max(1, params?.page ?? 1)
+  const pageSize = Math.max(1, Math.min(200, params?.pageSize ?? 20))
+  const keyword = (params?.keyword ?? '').trim().toLowerCase()
+  const status = params?.status
+
+  const filtered = [...mockUsers].filter((u) => {
+    if (status && u.status !== status) return false
+    if (!keyword) return true
+    return (
+      u.nickname.toLowerCase().includes(keyword) ||
+      (u.phone ?? '').toLowerCase().includes(keyword) ||
+      u.id.toLowerCase().includes(keyword)
+    )
+  })
+
+  const total = filtered.length
+  const start = (page - 1) * pageSize
+  const list = filtered.slice(start, start + pageSize)
+  return { list, total, page, pageSize }
+}
+
+export async function mockGetUserDetail(userId: string): Promise<AppUserDetail> {
+  await delay(160)
+  const user = mockUsers.find((u) => u.id === userId)
+  if (!user) throw new Error('用户不存在')
+  return {
+    ...user,
+    email: `${user.id}@example.com`,
+    avatar: undefined,
+  }
+}
+
 export async function mockListMenu(): Promise<{ categories: Category[]; dishes: Dish[] }> {
   await delay(220)
   return {
@@ -102,6 +144,46 @@ export async function mockListFeedbacks(): Promise<Feedback[]> {
 export async function mockListSupportTickets(): Promise<SupportTicket[]> {
   await delay(180)
   return [...mockSupportTickets]
+}
+
+export async function mockListSupportTicketsPaged(params?: {
+  page?: number
+  pageSize?: number
+  keyword?: string
+  status?: SupportTicket['status']
+}): Promise<PageResult<SupportTicket>> {
+  await delay(220)
+  const page = Math.max(1, params?.page ?? 1)
+  const pageSize = Math.max(1, Math.min(200, params?.pageSize ?? 20))
+  const keyword = (params?.keyword ?? '').trim().toLowerCase()
+  const status = params?.status
+
+  const filtered = [...mockSupportTickets].filter((t) => {
+    if (status && t.status !== status) return false
+    if (!keyword) return true
+    return (
+      t.nickname.toLowerCase().includes(keyword) ||
+      t.topic.toLowerCase().includes(keyword) ||
+      t.id.toLowerCase().includes(keyword)
+    )
+  })
+
+  filtered.sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1))
+  const total = filtered.length
+  const start = (page - 1) * pageSize
+  const list = filtered.slice(start, start + pageSize)
+  return { list, total, page, pageSize }
+}
+
+export async function mockGetSupportTicketDetail(ticketId: string): Promise<SupportTicketDetail> {
+  await delay(160)
+  const ticket = mockSupportTickets.find((t) => t.id === ticketId)
+  if (!ticket) throw new Error('工单不存在')
+  return {
+    ...ticket,
+    createdAt: '2026-03-01T07:30:00.000Z',
+    updatedAt: ticket.lastMessageAt,
+  }
 }
 
 export async function mockCreateNoticeApi(payload: {

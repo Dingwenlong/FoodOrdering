@@ -1,6 +1,7 @@
 package com.foodordering.service.admin;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.foodordering.auth.AdminJwtTokenService;
 import com.foodordering.dto.admin.AdminDtos;
 import com.foodordering.entity.AdminNotice;
@@ -225,6 +226,126 @@ public class AdminService {
             ));
         }
         return result;
+    }
+
+    public AdminDtos.PageResult<AdminDtos.AppUserView> listUsersPaged(
+            int page,
+            int pageSize,
+            String keyword,
+            String status
+    ) {
+        int resolvedPage = Math.max(1, page);
+        int resolvedPageSize = pageSize <= 0 ? 20 : Math.min(200, pageSize);
+
+        LambdaQueryWrapper<User> query = new LambdaQueryWrapper<User>()
+                .orderByDesc(User::getCreateTime);
+
+        String trimmedStatus = trimToNull(status);
+        if (trimmedStatus != null) {
+            String normalized = trimmedStatus.trim().toUpperCase();
+            if ("ACTIVE".equals(normalized) || "1".equals(normalized)) {
+                query.eq(User::getStatus, 1);
+            } else if ("INACTIVE".equals(normalized) || "0".equals(normalized)) {
+                query.eq(User::getStatus, 0);
+            }
+        }
+
+        String q = trimToNull(keyword);
+        if (q != null) {
+            Long idKeyword = parseLongOrNull(q);
+            query.and(w -> {
+                w.like(User::getUsername, q).or().like(User::getPhone, q);
+                if (idKeyword != null) {
+                    w.or().eq(User::getId, idKeyword);
+                }
+            });
+        }
+
+        Page<User> pageReq = new Page<>(resolvedPage, resolvedPageSize);
+        Page<User> pageRes = userMapper.selectPage(pageReq, query);
+        List<User> users = pageRes.getRecords();
+
+        if (users == null || users.isEmpty()) {
+            return new AdminDtos.PageResult<>(List.of(), pageRes.getTotal(), resolvedPage, resolvedPageSize);
+        }
+
+        Set<Long> userIds = users.stream().map(User::getId).collect(Collectors.toSet());
+        List<Order> orders = orderMapper.selectList(
+                new LambdaQueryWrapper<Order>()
+                        .in(Order::getUserId, userIds)
+                        .select(Order::getUserId, Order::getOrderTime)
+        );
+
+        Map<Long, Long> orderCountMap = orders.stream()
+                .collect(Collectors.groupingBy(Order::getUserId, Collectors.counting()));
+
+        Map<Long, LocalDateTime> lastOrderTimeMap = orders.stream()
+                .filter(o -> o.getOrderTime() != null)
+                .collect(Collectors.groupingBy(
+                        Order::getUserId,
+                        Collectors.collectingAndThen(
+                                Collectors.maxBy(Comparator.comparing(Order::getOrderTime)),
+                                maxOpt -> maxOpt.map(Order::getOrderTime).orElse(null)
+                        )
+                ));
+
+        List<AdminDtos.AppUserView> result = new ArrayList<>(users.size());
+        for (User user : users) {
+            LocalDateTime lastActive = lastOrderTimeMap.get(user.getId());
+            if (lastActive == null) {
+                lastActive = user.getUpdateTime() != null ? user.getUpdateTime() : user.getCreateTime();
+            }
+            int orderCount = orderCountMap.getOrDefault(user.getId(), 0L).intValue();
+            result.add(new AdminDtos.AppUserView(
+                    String.valueOf(user.getId()),
+                    user.getUsername(),
+                    user.getPhone(),
+                    toIso(user.getCreateTime()),
+                    toIso(lastActive),
+                    orderCount,
+                    user.getStatus() != null && user.getStatus() == 1 ? "ACTIVE" : "INACTIVE"
+            ));
+        }
+
+        return new AdminDtos.PageResult<>(result, pageRes.getTotal(), resolvedPage, resolvedPageSize);
+    }
+
+    public AdminDtos.AppUserDetailView getUserDetail(String userId) {
+        Long id = parseLongId(userId, "userId");
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "用户不存在");
+        }
+
+        List<Order> orders = orderMapper.selectList(
+                new LambdaQueryWrapper<Order>()
+                        .eq(Order::getUserId, id)
+                        .select(Order::getOrderTime)
+        );
+
+        int orderCount = orders.size();
+        LocalDateTime lastOrderTime = orders.stream()
+                .filter(o -> o.getOrderTime() != null)
+                .max(Comparator.comparing(Order::getOrderTime))
+                .map(Order::getOrderTime)
+                .orElse(null);
+
+        LocalDateTime lastActive = lastOrderTime;
+        if (lastActive == null) {
+            lastActive = user.getUpdateTime() != null ? user.getUpdateTime() : user.getCreateTime();
+        }
+
+        return new AdminDtos.AppUserDetailView(
+                String.valueOf(user.getId()),
+                user.getUsername(),
+                user.getPhone(),
+                user.getEmail(),
+                user.getAvatar(),
+                toIso(user.getCreateTime()),
+                toIso(lastActive),
+                orderCount,
+                user.getStatus() != null && user.getStatus() == 1 ? "ACTIVE" : "INACTIVE"
+        );
     }
 
     public AdminDtos.UserStatusView updateUserStatus(String userId, AdminDtos.UserStatusUpdateRequest request) {
@@ -544,6 +665,57 @@ public class AdminService {
         return tickets.stream().map(this::toSupportTicketView).toList();
     }
 
+    public AdminDtos.PageResult<AdminDtos.SupportTicketView> listSupportTicketsPaged(
+            int page,
+            int pageSize,
+            String keyword,
+            String status
+    ) {
+        int resolvedPage = Math.max(1, page);
+        int resolvedPageSize = pageSize <= 0 ? 20 : Math.min(200, pageSize);
+
+        LambdaQueryWrapper<SupportTicketRecord> query = new LambdaQueryWrapper<SupportTicketRecord>()
+                .orderByDesc(SupportTicketRecord::getLastMessageAt);
+
+        String trimmedStatus = trimToNull(status);
+        if (trimmedStatus != null) {
+            query.eq(SupportTicketRecord::getStatus, trimmedStatus.trim().toUpperCase());
+        }
+
+        String q = trimToNull(keyword);
+        if (q != null) {
+            Long idKeyword = parseLongOrNull(q);
+            query.and(w -> {
+                w.like(SupportTicketRecord::getNickname, q).or().like(SupportTicketRecord::getTopic, q);
+                if (idKeyword != null) {
+                    w.or().eq(SupportTicketRecord::getId, idKeyword);
+                }
+            });
+        }
+
+        Page<SupportTicketRecord> pageReq = new Page<>(resolvedPage, resolvedPageSize);
+        Page<SupportTicketRecord> pageRes = supportTicketRecordMapper.selectPage(pageReq, query);
+        List<AdminDtos.SupportTicketView> list = pageRes.getRecords().stream().map(this::toSupportTicketView).toList();
+        return new AdminDtos.PageResult<>(list, pageRes.getTotal(), resolvedPage, resolvedPageSize);
+    }
+
+    public AdminDtos.SupportTicketDetailView getSupportTicketDetail(String ticketId) {
+        Long id = parseLongId(ticketId, "ticketId");
+        SupportTicketRecord ticket = supportTicketRecordMapper.selectById(id);
+        if (ticket == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "工单不存在");
+        }
+        return new AdminDtos.SupportTicketDetailView(
+                String.valueOf(ticket.getId()),
+                ticket.getNickname(),
+                ticket.getTopic(),
+                toIso(ticket.getLastMessageAt()),
+                ticket.getStatus(),
+                toIso(ticket.getCreateTime()),
+                toIso(ticket.getUpdateTime())
+        );
+    }
+
     public AdminDtos.SupportTicketView updateSupportTicketStatus(
             String ticketId,
             AdminDtos.SupportTicketStatusUpdateRequest request
@@ -555,7 +727,6 @@ public class AdminService {
         }
         String status = parseSupportStatus(request == null ? null : request.status());
         ticket.setStatus(status);
-        ticket.setLastMessageAt(LocalDateTime.now());
         ticket.setUpdateTime(LocalDateTime.now());
         supportTicketRecordMapper.updateById(ticket);
         return toSupportTicketView(ticket);
@@ -740,6 +911,17 @@ public class AdminService {
     private void ensureCategoryExists(Long categoryId) {
         if (categoryMapper.selectById(categoryId) == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "分类不存在");
+        }
+    }
+
+    private Long parseLongOrNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 

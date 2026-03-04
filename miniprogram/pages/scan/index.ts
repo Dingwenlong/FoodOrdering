@@ -12,8 +12,6 @@ Page({
     tableId: '',
     storeName: '',
     tableName: '',
-    manualStoreId: 'store_1',
-    manualTableId: '1',
     loading: false,
     errorMsg: '',
   },
@@ -21,10 +19,6 @@ Page({
   onLoad(options: Record<string, string>) {
     const preset = this.parseBindingFromOptions(options);
     if (preset) {
-      this.setData({
-        manualStoreId: preset.storeId,
-        manualTableId: preset.tableId,
-      });
       this.bindTable(preset.storeId, preset.tableId);
     }
   },
@@ -56,7 +50,7 @@ Page({
     if (!normalized) return null;
 
     const query = this.extractQuery(normalized);
-    const storeId = (query.storeId || query.store || query.s || this.data.manualStoreId || 'store_1').trim();
+    const storeId = (query.storeId || query.store || query.s || 'store_1').trim();
     const tableId = (query.tableId || query.table || query.t || '').trim();
 
     if (tableId) {
@@ -101,10 +95,6 @@ Page({
           wx.showToast({ title: '无效桌码', icon: 'none' });
           return;
         }
-        this.setData({
-          manualStoreId: parsed.storeId,
-          manualTableId: parsed.tableId,
-        });
         this.bindTable(parsed.storeId, parsed.tableId);
       },
       fail: () => {
@@ -113,23 +103,10 @@ Page({
     });
   },
 
-  handleStoreInput(e: WechatMiniprogram.BaseEvent) {
-    const value = (e as any).detail?.value || '';
-    this.setData({ manualStoreId: value });
-  },
-
-  handleTableInput(e: WechatMiniprogram.BaseEvent) {
-    const value = (e as any).detail?.value || '';
-    this.setData({ manualTableId: value });
-  },
-
   handleManual() {
-    const storeId = (this.data.manualStoreId || 'store_1').trim();
-    const tableId = (this.data.manualTableId || '').trim();
-    if (!tableId) {
-      wx.showToast({ title: '请输入桌号ID', icon: 'none' });
-      return;
-    }
+    const session = wx.getStorageSync(STORAGE_KEYS.session);
+    const storeId = String(session?.storeId || 'store_1').trim();
+    const tableId = String(session?.tableId || '1').trim();
     this.bindTable(storeId, tableId);
   },
 
@@ -164,8 +141,8 @@ Page({
 
       wx.showToast({ title: '桌台绑定成功', icon: 'success' });
       setTimeout(() => {
-        wx.navigateTo({
-          url: `/pages/menu/index?storeId=${session.storeId}&tableId=${session.tableId}`,
+        wx.reLaunch({
+          url: `/pages/home/index?storeId=${session.storeId}&tableId=${session.tableId}`,
         });
       }, 240);
     } catch (err) {
@@ -176,16 +153,5 @@ Page({
       wx.hideLoading();
       this.setData({ loading: false });
     }
-  },
-
-  goMenu() {
-    const session = wx.getStorageSync(STORAGE_KEYS.session);
-    if (!session || !session.storeId || !session.tableId) {
-      wx.showToast({ title: '请先绑定桌台', icon: 'none' });
-      return;
-    }
-    wx.navigateTo({
-      url: `/pages/menu/index?storeId=${session.storeId}&tableId=${session.tableId}`,
-    });
   },
 });

@@ -1,0 +1,73 @@
+<view class="container">
+  <view class="bg-glow bg-glow-1"></view>
+  <view class="bg-glow bg-glow-2"></view>
+
+  <view class="header">
+    <view class="store-info">
+      <text class="store-name">{{storeName}}</text>
+      <text class="table-info" wx:if="{{tableName}}">{{tableName}} 桌</text>
+    </view>
+    <button class="cs-btn glass-card" open-type="contact">
+      <text class="cs-icon">💬</text> 客服
+    </button>
+  </view>
+
+  <view class="notice-section glass-card" wx:if="{{notices.length > 0}}">
+    <view class="section-title">
+      <text class="title-text">餐厅公告</text>
+    </view>
+    <swiper class="notice-swiper" vertical autoplay circular interval="3000">
+      <swiper-item wx:for="{{notices}}" wx:key="id">
+        <view class="notice-item">
+          <text class="notice-tag">NEW</text>
+          <text class="notice-content">{{item.content}}</text>
+        </view>
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <view class="dish-section glass-card">
+    <view class="section-header">
+      <text class="section-title">菜品列表</text>
+      <text class="more-link" bindtap="goMenu">进入菜单 →</text>
+    </view>
+    <view class="dish-list">
+      <view class="dish-item" wx:for="{{dishes}}" wx:key="id" bindtap="goMenu">
+        <image class="dish-image" src="{{item.image}}" mode="aspectFill"></image>
+        <view class="dish-meta">
+          <view class="dish-top">
+            <text class="dish-name">{{item.name}}</text>
+            <text class="dish-soldout" wx:if="{{item.soldOut}}">售罄</text>
+          </view>
+          <text class="dish-desc">{{item.description || '暂无描述'}}</text>
+          <text class="dish-price">¥{{item.priceFen / 100}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="comment-section glass-card">
+    <view class="section-header">
+      <text class="section-title">顾客评价</text>
+    </view>
+    <view class="comment-list">
+      <view class="comment-item" wx:for="{{comments}}" wx:key="id">
+        <view class="comment-header">
+          <text class="user-name">{{item.userName}}</text>
+          <view class="rating">
+            <text class="star" wx:for="{{[1,2,3,4,5]}}" wx:key="*this" wx:for-item="star">{{item.rating >= star ? '⭐' : '☆'}}</text>
+          </view>
+        </view>
+        <text class="comment-content">{{item.content}}</text>
+        <text class="comment-date">{{item.createdAt}}</text>
+      </view>
+    </view>
+    <view class="empty-comment" wx:if="{{comments.length === 0}}">
+      暂无评价
+    </view>
+  </view>
+
+  <view class="footer">
+    <button class="order-btn neon-btn" bindtap="goMenu">立即点餐</button>
+  </view>
+</view>

@@ -4,7 +4,7 @@
       <text class="store-name">{{storeName || '未来餐厅'}}</text>
       <text class="store-status">营业中</text>
     </view>
-    <view class="table-tag touch-target" bindtap="goScan">
+    <view class="table-tag" bindtap="goScan">
       <text class="table-label">桌号</text>
       <text class="table-value">{{tableName || tableId}}</text>
     </view>
@@ -15,8 +15,6 @@
       class="search-input"
       value="{{keyword}}"
       bindinput="handleKeywordInput"
-      adjust-position="true"
-      cursor-spacing="16"
       placeholder="搜索菜品名称 / 描述"
       placeholder-class="search-placeholder"
     />
@@ -40,6 +38,7 @@
         <text>{{item.name}}</text>
         <view class="active-indicator" wx:if="{{currentCategory === item.id}}"></view>
       </view>
+      <view style="height: 100rpx"></view>
     </scroll-view>
 
     <scroll-view
@@ -110,6 +109,7 @@
           </view>
         </view>
       </view>
+      <view style="height: 220rpx;"></view>
     </scroll-view>
   </view>
 
@@ -133,6 +133,7 @@
             bindtap="selectSpecOption"
           >{{item}}</view>
         </view>
+      </view>
 
       <view class="spec-selected" wx:if="{{specSummary}}">
         <text>已选：{{specSummary}}</text>
@@ -145,7 +146,7 @@
           <text class="spec-qty">{{specQty}}</text>
           <view class="btn-plus touch-target" bindtap="updateSpecQty" data-delta="{{1}}">+</view>
         </view>
-      </scroll-view>
+      </view>
 
       <view class="spec-actions">
         <button class="spec-cancel" bindtap="closeSpec">取消</button>

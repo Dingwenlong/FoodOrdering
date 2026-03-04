@@ -97,3 +97,13 @@ export const mockOrders: Order[] = [
     remark: '不要香菜'
   }
 ];
+
+export const mockNotices = [
+  { id: '1', title: '今日特惠', content: '宫保鸡丁 8 折优惠，欢迎品尝！', createdAt: '2024-03-05' },
+  { id: '2', title: '营业时间调整', content: '由于设备维护，明日营业时间调整为 10:00 - 20:00', createdAt: '2024-03-04' }
+];
+
+export const mockComments = [
+  { id: '1', orderId: '10001', userName: '张三', content: '味道不错，推荐！', rating: 5, createdAt: '2024-03-05' },
+  { id: '2', orderId: '10002', userName: '李四', content: '豆腐稍微有点咸，整体还可以。', rating: 4, createdAt: '2024-03-04' }
+];

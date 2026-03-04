@@ -11,38 +11,6 @@
       <text class="subtitle">扫码绑定桌台，快速开始点餐</text>
     </view>
 
-    <view class="binding-info" wx:if="{{tableId}}">
-      <text class="binding-text">已绑定 {{storeName}} · {{tableName}}</text>
-      <button class="mini-action" bindtap="goMenu">进入点餐</button>
-    </view>
-
-    <view class="manual-form glass-card">
-      <view class="field-row">
-        <text class="field-label">门店ID</text>
-        <input
-          class="field-input"
-          value="{{manualStoreId}}"
-          bindinput="handleStoreInput"
-          adjust-position="true"
-          cursor-spacing="16"
-          placeholder="例如 store_1"
-          placeholder-class="placeholder"
-        />
-      </view>
-      <view class="field-row">
-        <text class="field-label">桌号ID</text>
-        <input
-          class="field-input"
-          value="{{manualTableId}}"
-          bindinput="handleTableInput"
-          adjust-position="true"
-          cursor-spacing="16"
-          placeholder="例如 1"
-          placeholder-class="placeholder"
-        />
-      </view>
-    </view>
-
     <view class="error-box" wx:if="{{errorMsg}}">{{errorMsg}}</view>
 
     <view class="action-area">
@@ -66,13 +34,5 @@
         手动绑定并进入
       </button>
     </view>
-  </view>
-
-  <view class="tips">
-    <text>支持扫码桌码或手动输入桌号，均可绑定会话</text>
-  </view>
-
-  <view class="footer">
-    <text class="brand">FoodOS v2.1</text>
   </view>
 </view>

@@ -14,6 +14,13 @@ Page({
     loading: false,
     errorMsg: '',
     contentMaxHeightPx: 9999,
+    reviewRating: 5,
+    reviewContent: '',
+    reviewSubmitting: false,
+    reviewed: false,
+    reviewedAt: '',
+    reviewedContent: '',
+    reviewedRating: 0,
   },
 
   onLoad(options: Record<string, string>) {
@@ -74,6 +81,7 @@ Page({
       const order = res.data;
       this.setData({ order });
       this.updateStatusUI(order.status);
+      await this.loadReviewState(order.id);
       setTimeout(() => this.recalcLayout(), 0);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '订单加载失败';
@@ -186,6 +194,95 @@ Page({
     const orderId = this.data.order?.id;
     if (!orderId) return;
     await this.fetchOrder(orderId);
+  },
+
+  async loadReviewState(orderId: string) {
+    if (!orderId) return;
+    try {
+      const res = await request<Array<{ orderId?: string; rating?: number; content?: string; createdAt?: string }>>({
+        url: '/comments',
+        method: 'GET',
+      });
+      const current = (res.data || []).find((item) => String(item.orderId || '') === String(orderId));
+      if (current) {
+        this.setData({
+          reviewed: true,
+          reviewedAt: String(current.createdAt || ''),
+          reviewedContent: String(current.content || ''),
+          reviewedRating: Number(current.rating || 0),
+        });
+        return;
+      }
+      this.setData({
+        reviewed: false,
+        reviewedAt: '',
+        reviewedContent: '',
+        reviewedRating: 0,
+      });
+    } catch {
+      this.setData({
+        reviewed: false,
+        reviewedAt: '',
+        reviewedContent: '',
+        reviewedRating: 0,
+      });
+    }
+  },
+
+  handleRatingTap(e: WechatMiniprogram.BaseEvent) {
+    const score = Number(e.currentTarget.dataset.score || 0);
+    if (!Number.isFinite(score) || score < 1 || score > 5) return;
+    this.setData({ reviewRating: score });
+  },
+
+  handleReviewInput(e: WechatMiniprogram.BaseEvent) {
+    const value = String((e as any).detail?.value || '');
+    this.setData({ reviewContent: value });
+  },
+
+  async submitReview() {
+    const order = this.data.order;
+    if (!order || order.status !== 'DONE') {
+      wx.showToast({ title: '订单完成后可评价', icon: 'none' });
+      return;
+    }
+    if (this.data.reviewed) {
+      wx.showToast({ title: '该订单已评价', icon: 'none' });
+      return;
+    }
+    if (this.data.reviewSubmitting) return;
+
+    const content = this.data.reviewContent.trim();
+    if (!content) {
+      wx.showToast({ title: '请填写评价内容', icon: 'none' });
+      return;
+    }
+
+    this.setData({ reviewSubmitting: true });
+    try {
+      const payload = {
+        orderId: order.id,
+        rating: this.data.reviewRating,
+        content,
+      };
+      const res = await request<{ rating: number; content: string; createdAt: string }>({
+        url: '/comments',
+        method: 'POST',
+        data: payload,
+      });
+      this.setData({
+        reviewed: true,
+        reviewedRating: Number(res.data.rating || this.data.reviewRating),
+        reviewedContent: String(res.data.content || content),
+        reviewedAt: String(res.data.createdAt || ''),
+      });
+      wx.showToast({ title: '评价成功', icon: 'success' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '评价失败';
+      wx.showToast({ title: msg, icon: 'none' });
+    } finally {
+      this.setData({ reviewSubmitting: false });
+    }
   },
 
   copyId(e: WechatMiniprogram.BaseEvent) {

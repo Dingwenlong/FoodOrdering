@@ -24,7 +24,7 @@ page {
   --line-body: 1.4;
   --page-px: 32rpx;
   --page-py: 32rpx;
-  --safe-bottom-gap: 68rpx;
+  --safe-bottom-gap: 24rpx; /* 基础留白，用于普通机型 */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
   --content-max-width: 100%;

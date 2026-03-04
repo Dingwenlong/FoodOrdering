@@ -1,4 +1,4 @@
-import { mockCategories, mockOrders, mockStoreSession } from '../mock/data';
+import { mockCategories, mockOrders, mockStoreSession, mockNotices, mockComments } from '../mock/data';
 import type {
   BindTablePayload,
   BindTableResult,
@@ -12,8 +12,9 @@ import type {
 
 const MOCK_FLAG_KEY = 'MP_USE_MOCK';
 const API_BASE_URL_KEY = 'MP_API_BASE_URL';
+const MOCK_ORDERS_KEY = 'MP_MOCK_ORDERS';
+const MOCK_COMMENTS_KEY = 'MP_MOCK_COMMENTS';
 
-const USE_MOCK = wx.getStorageSync(MOCK_FLAG_KEY) !== false;
 const BASE_URL = (wx.getStorageSync(API_BASE_URL_KEY) as string) || 'http://localhost:8080';
 const API_PREFIX = '/api/v1';
 
@@ -43,7 +44,8 @@ type UrlInfo = {
 };
 
 const mockState = {
-  orders: cloneOrders(mockOrders),
+  orders: initMockOrders(),
+  comments: initMockComments(),
 };
 
 function cloneOrders(list: Order[]): Order[] {
@@ -51,6 +53,39 @@ function cloneOrders(list: Order[]): Order[] {
     ...order,
     items: order.items.map((item) => ({ ...item })),
   }));
+}
+
+function cloneComments(list: Array<Record<string, any>>) {
+  return list.map((item) => ({ ...item }));
+}
+
+function initMockOrders(): Order[] {
+  const cached = wx.getStorageSync(MOCK_ORDERS_KEY);
+  if (Array.isArray(cached) && cached.length > 0) {
+    return cloneOrders(cached as Order[]);
+  }
+  const seed = cloneOrders(mockOrders);
+  wx.setStorageSync(MOCK_ORDERS_KEY, seed);
+  return seed;
+}
+
+function initMockComments(): Array<Record<string, any>> {
+  const cached = wx.getStorageSync(MOCK_COMMENTS_KEY);
+  if (Array.isArray(cached) && cached.length > 0) {
+    return cloneComments(cached as Array<Record<string, any>>);
+  }
+  const seed = cloneComments(mockComments);
+  wx.setStorageSync(MOCK_COMMENTS_KEY, seed);
+  return seed;
+}
+
+function persistMockState() {
+  wx.setStorageSync(MOCK_ORDERS_KEY, cloneOrders(mockState.orders));
+  wx.setStorageSync(MOCK_COMMENTS_KEY, cloneComments(mockState.comments));
+}
+
+function shouldUseMock(): boolean {
+  return wx.getStorageSync(MOCK_FLAG_KEY) !== false;
 }
 
 const successEnvelope = <T>(data: T): ApiEnvelope<T> => ({
@@ -262,6 +297,7 @@ async function handleMockRequest<T = any>(options: WechatMiniprogram.RequestOpti
   } else if (path === '/orders' && method === 'POST') {
     const order = buildMockOrder(body as CreateOrderPayload);
     mockState.orders.unshift(order);
+    persistMockState();
     result = order;
   } else if (/^\/orders\/.+/.test(path) && method === 'GET') {
     const orderId = path.split('/').pop() || '';
@@ -311,7 +347,47 @@ async function handleMockRequest<T = any>(options: WechatMiniprogram.RequestOpti
       ...mockState.orders[index],
       status: 'PAID',
     };
+    persistMockState();
     result = mockState.orders[index];
+  } else if (path === '/notices' && method === 'GET') {
+    result = mockNotices;
+  } else if (path === '/comments' && method === 'GET') {
+    result = mockState.comments;
+  } else if (path === '/comments' && method === 'POST') {
+    const orderId = String(body.orderId || '').trim();
+    const rating = Number(body.rating || 0);
+    const content = String(body.content || '').trim();
+    if (!orderId) {
+      throw new Error('orderId 不能为空');
+    }
+    const order = mockState.orders.find((item) => item.id === orderId);
+    if (!order) {
+      throw new Error('订单不存在');
+    }
+    if (order.status !== 'DONE') {
+      throw new Error('仅已完成订单可评价');
+    }
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+      throw new Error('评分需在 1~5 之间');
+    }
+    if (!content) {
+      throw new Error('评价内容不能为空');
+    }
+    const existed = mockState.comments.find((item) => String(item.orderId || '') === orderId);
+    if (existed) {
+      throw new Error('该订单已评价');
+    }
+    const newComment = {
+      id: String(Date.now()),
+      orderId,
+      userName: '匿名用户',
+      rating,
+      content,
+      createdAt: new Date().toISOString(),
+    };
+    mockState.comments.unshift(newComment);
+    persistMockState();
+    result = newComment;
   } else {
     throw new Error(`Mock route not found: ${method} ${path}`);
   }
@@ -321,7 +397,7 @@ async function handleMockRequest<T = any>(options: WechatMiniprogram.RequestOpti
 }
 
 export const request = async <T = any>(options: WechatMiniprogram.RequestOption): Promise<RequestResult<T>> => {
-  if (USE_MOCK) {
+  if (shouldUseMock()) {
     return handleMockRequest<T>(options);
   }
 

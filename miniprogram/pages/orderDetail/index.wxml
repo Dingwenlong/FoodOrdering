@@ -71,30 +71,55 @@
           <text class="value">{{order.remark}}</text>
         </view>
       </view>
+
+      <view class="review-card glass-card" wx:if="{{order.status === 'DONE'}}">
+        <view class="section-title">订单评价</view>
+        <view wx:if="{{reviewed}}" class="review-result">
+          <view class="review-result-stars">
+            <text class="review-star active" wx:for="{{[1,2,3,4,5]}}" wx:key="*this">{{item <= reviewedRating ? '★' : '☆'}}</text>
+          </view>
+          <text class="review-result-content">{{reviewedContent || '已提交评价'}}</text>
+          <text class="review-result-time" wx:if="{{reviewedAt}}">{{reviewedAt}}</text>
+        </view>
+        <view wx:else class="review-editor">
+          <view class="review-stars">
+            <text
+              class="review-star {{reviewRating >= item ? 'active' : ''}}"
+              wx:for="{{[1,2,3,4,5]}}"
+              wx:key="*this"
+              data-score="{{item}}"
+              bindtap="handleRatingTap"
+            >★</text>
+          </view>
+          <textarea
+            class="review-input"
+            value="{{reviewContent}}"
+            placeholder="说说这次用餐体验吧~"
+            placeholder-class="review-placeholder"
+            maxlength="200"
+            bindinput="handleReviewInput"
+          />
+          <button
+            class="submit-review-btn neon-btn"
+            bindtap="submitReview"
+            loading="{{reviewSubmitting}}"
+            disabled="{{reviewSubmitting}}"
+          >提交评价</button>
+        </view>
+      </view>
     </block>
   </scroll-view>
 
-  <view class="footer-action safe-area-bottom" wx:if="{{order && order.status === 'PENDING_PAY'}}">
-    <button
-      class="pay-btn neon-btn"
-      bindtap="handlePay"
-      loading="{{paying}}"
-      hover-class="btn-hover"
-    >
-      立即支付 ¥{{order.totalPriceFen / 100}}
-    </button>
-  </view>
-
-  <view class="footer-action safe-area-bottom" wx:if="{{order && order.status !== 'PENDING_PAY'}}">
-    <view class="action-grid {{order.status === 'PAID' || order.status === 'COOKING' ? 'triple' : ''}}">
-      <button class="secondary-btn" bindtap="refreshOrder">刷新状态</button>
+  <block wx:if="{{order}}">
+    <view class="footer-action safe-area-bottom" wx:if="{{order.status === 'PENDING_PAY'}}">
       <button
-        wx:if="{{order.status === 'PAID' || order.status === 'COOKING'}}"
-        class="secondary-btn urge-btn"
-        bindtap="handleUrge"
-        loading="{{urgeLoading}}"
-      >催单</button>
-      <button class="pay-btn neon-btn" bindtap="goMenu">继续点餐</button>
+        class="pay-btn neon-btn"
+        bindtap="handlePay"
+        loading="{{paying}}"
+        hover-class="btn-hover"
+      >
+        立即支付 ¥{{order.totalPriceFen / 100}}
+      </button>
     </view>
 
     <view class="footer-action safe-area-bottom" wx:else>
@@ -106,10 +131,7 @@
           bindtap="handleUrge"
           loading="{{urgeLoading}}"
         >催单</button>
-        <button
-          class="pay-btn neon-btn {{order.status === 'PAID' || order.status === 'COOKING' ? 'full-row' : ''}}"
-          bindtap="goMenu"
-        >继续点餐</button>
+        <button class="pay-btn neon-btn" bindtap="goMenu">继续点餐</button>
       </view>
     </view>
   </block>
