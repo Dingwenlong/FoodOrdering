@@ -56,6 +56,34 @@ public final class ClientDtos {
     ) {
     }
 
+    @Schema(description = "公告视图")
+    public record NoticeView(
+            @Schema(description = "公告ID") String id,
+            @Schema(description = "公告标题") String title,
+            @Schema(description = "公告内容") String content,
+            @Schema(description = "发布时间") String createdAt
+    ) {
+    }
+
+    @Schema(description = "评价视图")
+    public record CommentView(
+            @Schema(description = "评价ID") String id,
+            @Schema(description = "订单ID") String orderId,
+            @Schema(description = "用户名称") String userName,
+            @Schema(description = "评价内容") String content,
+            @Schema(description = "评分") int rating,
+            @Schema(description = "创建时间") String createdAt
+    ) {
+    }
+
+    @Schema(description = "提交评价请求")
+    public record CreateCommentRequest(
+            @Schema(description = "订单ID") String orderId,
+            @Schema(description = "评分（1-5）") Integer rating,
+            @Schema(description = "评价内容") String content
+    ) {
+    }
+
     @Schema(description = "创建订单项请求")
     public record CreateOrderItemRequest(
             @Schema(description = "菜品ID") String dishId,

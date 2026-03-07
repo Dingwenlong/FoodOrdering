@@ -112,14 +112,22 @@
 
   <block wx:if="{{order}}">
     <view class="footer-action safe-area-bottom" wx:if="{{order.status === 'PENDING_PAY'}}">
-      <button
-        class="pay-btn neon-btn"
-        bindtap="handlePay"
-        loading="{{paying}}"
-        hover-class="btn-hover"
-      >
-        立即支付 ¥{{order.totalPriceFen / 100}}
-      </button>
+      <view class="action-grid">
+        <button
+          class="secondary-btn"
+          bindtap="handleCancel"
+          loading="{{cancelLoading}}"
+          disabled="{{paying}}"
+        >取消订单</button>
+        <button
+          class="pay-btn neon-btn"
+          bindtap="handlePay"
+          loading="{{paying}}"
+          hover-class="btn-hover"
+        >
+          立即支付 ¥{{order.totalPriceFen / 100}}
+        </button>
+      </view>
     </view>
 
     <view class="footer-action safe-area-bottom" wx:else>

@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Tag(name = "用户端接口", description = "提供移动端/小程序所需的点餐、支付、订单管理等功能")
 @RestController
 @RequestMapping("/v1")
@@ -36,16 +38,46 @@ public class ClientController {
         return clientService.getMenu(storeId);
     }
 
+    @Operation(summary = "获取公告列表")
+    @GetMapping("/notices")
+    public List<ClientDtos.NoticeView> notices() {
+        return clientService.listNotices();
+    }
+
+    @Operation(summary = "获取评价列表")
+    @GetMapping("/comments")
+    public List<ClientDtos.CommentView> comments() {
+        return clientService.listComments();
+    }
+
+    @Operation(summary = "提交评价")
+    @PostMapping("/comments")
+    public ClientDtos.CommentView createComment(@RequestBody ClientDtos.CreateCommentRequest request) {
+        return clientService.createComment(request);
+    }
+
     @Operation(summary = "创建订单", description = "提交选中的菜品生成待支付订单")
     @PostMapping("/orders")
     public ClientDtos.OrderView createOrder(@RequestBody ClientDtos.CreateOrderRequest request) {
         return clientService.createOrder(request);
     }
 
+    @Operation(summary = "获取我的订单列表")
+    @GetMapping("/orders")
+    public List<ClientDtos.OrderView> listOrders() {
+        return clientService.listOrders();
+    }
+
     @Operation(summary = "获取订单详情")
     @GetMapping("/orders/{orderId}")
     public ClientDtos.OrderView getOrder(@Parameter(description = "订单ID") @PathVariable("orderId") String orderId) {
         return clientService.getOrder(orderId);
+    }
+
+    @Operation(summary = "取消订单")
+    @PostMapping("/orders/{orderId}/cancel")
+    public ClientDtos.OrderView cancelOrder(@Parameter(description = "订单ID") @PathVariable("orderId") String orderId) {
+        return clientService.cancelOrder(orderId);
     }
 
     @Operation(summary = "微信支付预下单", description = "根据订单号换取微信支付所需的预下单参数")

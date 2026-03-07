@@ -1,0 +1,31 @@
+<view class="container">
+  <view class="header">
+    <text class="title">我的订单</text>
+    <button class="refresh-btn" bindtap="fetchOrders" loading="{{loading}}">刷新</button>
+  </view>
+
+  <view class="loading-state" wx:if="{{loading}}">订单加载中...</view>
+  <view class="error-state" wx:if="{{!loading && errorMsg}}">{{errorMsg}}</view>
+
+  <view class="empty-state" wx:if="{{!loading && !errorMsg && orders.length === 0}}">
+    <text>暂无订单，去点餐吧</text>
+    <button class="primary-btn" bindtap="goMenu">去点餐</button>
+  </view>
+
+  <scroll-view class="list" scroll-y wx:if="{{orders.length > 0}}">
+    <view class="order-card glass-card" wx:for="{{orders}}" wx:key="id" bindtap="goOrderDetail" data-id="{{item.id}}">
+      <view class="order-top">
+        <text class="order-id">订单号：{{item.id}}</text>
+        <text class="status-tag status-{{item.status}}">{{item.status}}</text>
+      </view>
+      <view class="order-meta">
+        <text>桌号：{{item.tableName || item.tableId}}</text>
+        <text>下单：{{item.createdAt}}</text>
+      </view>
+      <view class="order-bottom">
+        <text class="amount">¥{{item.totalPriceFen / 100}}</text>
+        <text class="detail-link">查看详情</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

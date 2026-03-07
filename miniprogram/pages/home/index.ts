@@ -80,4 +80,8 @@ Page({
       url: `/pages/menu/index?storeId=${this.data.storeId}&tableId=${this.data.tableId}`,
     });
   },
+
+  goOrders() {
+    wx.navigateTo({ url: '/pages/orders/index' });
+  },
 });

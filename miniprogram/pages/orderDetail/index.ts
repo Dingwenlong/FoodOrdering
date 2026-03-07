@@ -10,6 +10,7 @@ Page({
     statusIcon: 'waiting',
     statusColor: '#60a5fa',
     paying: false,
+    cancelLoading: false,
     urgeLoading: false,
     loading: false,
     errorMsg: '',
@@ -187,6 +188,27 @@ Page({
       wx.showToast({ title: msg, icon: 'none' });
     } finally {
       this.setData({ urgeLoading: false });
+    }
+  },
+
+  async handleCancel() {
+    const order = this.data.order;
+    if (!order || order.status !== 'PENDING_PAY' || this.data.cancelLoading) return;
+    this.setData({ cancelLoading: true, errorMsg: '' });
+    try {
+      const res = await request<Order>({
+        url: `/orders/${order.id}/cancel`,
+        method: 'POST',
+      });
+      this.setData({ order: res.data });
+      this.updateStatusUI(res.data.status);
+      wx.showToast({ title: '订单已取消', icon: 'success' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '取消失败';
+      this.setData({ errorMsg: msg });
+      wx.showToast({ title: msg, icon: 'none' });
+    } finally {
+      this.setData({ cancelLoading: false });
     }
   },
 
