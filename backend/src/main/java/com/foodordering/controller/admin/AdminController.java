@@ -241,4 +241,78 @@ public class AdminController {
             @RequestBody AdminDtos.SupportTicketStatusUpdateRequest request) {
         return adminService.updateSupportTicketStatus(ticketId, request);
     }
+
+    @Operation(summary = "获取工单消息列表")
+    @GetMapping("/support/tickets/{ticketId}/messages")
+    public AdminDtos.PageResult<AdminDtos.SupportTicketMessageView> listTicketMessages(
+            @Parameter(description = "工单ID") @PathVariable("ticketId") String ticketId,
+            @Parameter(description = "页码") @RequestParam(value = "page", required = false) Integer page,
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize) {
+        return adminService.listTicketMessages(ticketId, page, pageSize);
+    }
+
+    @Operation(summary = "发送消息（管理员回复）")
+    @PostMapping("/support/tickets/{ticketId}/messages")
+    @AdminAuthorize(AdminPermission.SUPPORT_TICKET_STATUS_UPDATE)
+    public AdminDtos.SupportTicketMessageView sendMessage(
+            @Parameter(description = "工单ID") @PathVariable("ticketId") String ticketId,
+            @RequestBody AdminDtos.SendMessageRequest request,
+            HttpServletRequest httpRequest) {
+        AdminUserAccount currentAdmin = AdminAuthInterceptor.requireCurrentAdmin(httpRequest);
+        return adminService.sendMessage(ticketId, request, currentAdmin);
+    }
+
+    @Operation(summary = "查询桌码列表", description = "支持分页、关键词搜索和状态过滤")
+    @GetMapping("/tables")
+    public AdminDtos.PageResult<AdminDtos.TableView> tables(
+            @Parameter(description = "页码") @RequestParam(value = "page", required = false) Integer page,
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "关键词") @RequestParam(value = "keyword", required = false) String keyword,
+            @Parameter(description = "状态") @RequestParam(value = "status", required = false) String status,
+            @Parameter(description = "区域") @RequestParam(value = "area", required = false) String area) {
+        return adminService.listTablesPaged(
+                page == null ? 1 : page,
+                pageSize == null ? 20 : pageSize,
+                keyword, status, area
+        );
+    }
+
+    @Operation(summary = "获取桌码详情")
+    @GetMapping("/tables/{tableId}")
+    public AdminDtos.TableView tableDetail(
+            @Parameter(description = "桌码ID") @PathVariable("tableId") String tableId) {
+        return adminService.getTableDetail(tableId);
+    }
+
+    @Operation(summary = "创建桌码")
+    @PostMapping("/tables")
+    @AdminAuthorize(AdminPermission.TABLE_MANAGE)
+    public AdminDtos.TableView createTable(@RequestBody AdminDtos.TableUpsertRequest request) {
+        return adminService.createTable(request);
+    }
+
+    @Operation(summary = "更新桌码")
+    @PutMapping("/tables/{tableId}")
+    @AdminAuthorize(AdminPermission.TABLE_MANAGE)
+    public AdminDtos.TableView updateTable(
+            @Parameter(description = "桌码ID") @PathVariable("tableId") String tableId,
+            @RequestBody AdminDtos.TableUpsertRequest request) {
+        return adminService.updateTable(tableId, request);
+    }
+
+    @Operation(summary = "删除桌码")
+    @DeleteMapping("/tables/{tableId}")
+    @AdminAuthorize(AdminPermission.TABLE_MANAGE)
+    public void deleteTable(@Parameter(description = "桌码ID") @PathVariable("tableId") String tableId) {
+        adminService.deleteTable(tableId);
+    }
+
+    @Operation(summary = "更新桌码状态")
+    @PatchMapping("/tables/{tableId}/status")
+    @AdminAuthorize(AdminPermission.TABLE_MANAGE)
+    public AdminDtos.TableView updateTableStatus(
+            @Parameter(description = "桌码ID") @PathVariable("tableId") String tableId,
+            @RequestBody AdminDtos.TableStatusUpdateRequest request) {
+        return adminService.updateTableStatus(tableId, request);
+    }
 }

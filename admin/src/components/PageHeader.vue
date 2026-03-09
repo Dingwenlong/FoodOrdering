@@ -10,7 +10,10 @@ const props = defineProps<{ title: string; subtitle?: string; class?: string }>(
       <div class="text-lg font-semibold tracking-tight">
         {{ title }}
       </div>
-      <div v-if="subtitle" class="mt-1 text-sm text-muted-foreground">
+      <div
+        v-if="subtitle"
+        class="mt-1 text-sm text-muted-foreground"
+      >
         {{ subtitle }}
       </div>
     </div>

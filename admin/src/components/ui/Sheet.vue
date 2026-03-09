@@ -43,7 +43,11 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div v-if="props.open" class="fixed inset-0 z-40" @keydown.esc="close">
+      <div
+        v-if="props.open"
+        class="fixed inset-0 z-40"
+        @keydown.esc="close"
+      >
         <button
           type="button"
           aria-label="Close"
@@ -51,7 +55,12 @@ onBeforeUnmount(() => {
           @click="close"
         />
         <Transition :name="props.side === 'right' ? 'slide-in-right' : 'slide-in-left'">
-          <div v-if="props.open" :class="panelClass" role="dialog" aria-modal="true">
+          <div
+            v-if="props.open"
+            :class="panelClass"
+            role="dialog"
+            aria-modal="true"
+          >
             <slot />
           </div>
         </Transition>

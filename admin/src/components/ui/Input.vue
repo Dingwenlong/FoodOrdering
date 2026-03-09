@@ -14,6 +14,6 @@ defineOptions({ inheritAttrs: false })
         props.class,
       )
     "
-  />
+  >
 </template>
 

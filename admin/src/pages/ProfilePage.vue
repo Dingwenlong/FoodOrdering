@@ -19,13 +19,24 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-4">
-    <PageHeader title="个人中心" subtitle="查看当前登录管理员信息" />
+    <PageHeader
+      title="个人中心"
+      subtitle="查看当前登录管理员信息"
+    />
 
     <Card class="p-4">
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div v-for="it in items" :key="it.label" class="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-          <div class="text-xs text-zinc-500">{{ it.label }}</div>
-          <div class="mt-1 text-sm font-semibold text-zinc-900">{{ it.value }}</div>
+        <div
+          v-for="it in items"
+          :key="it.label"
+          class="rounded-md border border-zinc-200 bg-zinc-50 p-3"
+        >
+          <div class="text-xs text-zinc-500">
+            {{ it.label }}
+          </div>
+          <div class="mt-1 text-sm font-semibold text-zinc-900">
+            {{ it.value }}
+          </div>
         </div>
       </div>
       <div class="mt-4 text-sm text-zinc-600">

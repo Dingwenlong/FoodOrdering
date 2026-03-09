@@ -160,3 +160,17 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     INDEX idx_support_tickets_status (status),
     INDEX idx_support_tickets_last_message_at (last_message_at)
 ) COMMENT='客服工单表';
+
+CREATE TABLE IF NOT EXISTS support_ticket_messages (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    ticket_id BIGINT NOT NULL COMMENT '关联工单ID',
+    sender_type VARCHAR(20) NOT NULL COMMENT '发送者类型：USER/ADMIN',
+    sender_id VARCHAR(100) COMMENT '发送者ID（用户昵称或管理员ID）',
+    sender_name VARCHAR(100) COMMENT '发送者显示名称',
+    content TEXT NOT NULL COMMENT '消息内容',
+    is_read TINYINT DEFAULT 0 COMMENT '是否已读：1是，0否',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_messages_ticket_id (ticket_id),
+    INDEX idx_messages_create_time (create_time),
+    FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+) COMMENT='客服工单消息表';

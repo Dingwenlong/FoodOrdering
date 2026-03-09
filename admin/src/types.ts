@@ -113,3 +113,31 @@ export type SupportTicketDetail = SupportTicket & {
   createdAt: string
   updatedAt: string
 }
+
+export type SupportTicketMessage = {
+  id: ID
+  ticketId: ID
+  senderType: 'USER' | 'ADMIN'
+  senderId: string
+  senderName: string
+  content: string
+  isRead: boolean
+  createdAt: string
+}
+
+export type SendMessageRequest = {
+  content: string
+}
+
+export type TableStatus = 'IDLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE'
+
+export type Table = {
+  id: ID
+  tableNo: string
+  capacity: number
+  status: TableStatus
+  location?: string
+  area?: string
+  createdAt: string
+  updatedAt: string
+}

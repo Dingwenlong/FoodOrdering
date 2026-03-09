@@ -10,6 +10,7 @@ import com.foodordering.entity.Category;
 import com.foodordering.entity.Dish;
 import com.foodordering.entity.Order;
 import com.foodordering.entity.OrderItem;
+import com.foodordering.entity.SupportTicketMessage;
 import com.foodordering.entity.SupportTicketRecord;
 import com.foodordering.entity.Table;
 import com.foodordering.entity.User;
@@ -21,6 +22,7 @@ import com.foodordering.mapper.CategoryMapper;
 import com.foodordering.mapper.DishMapper;
 import com.foodordering.mapper.OrderItemMapper;
 import com.foodordering.mapper.OrderMapper;
+import com.foodordering.mapper.SupportTicketMessageMapper;
 import com.foodordering.mapper.SupportTicketRecordMapper;
 import com.foodordering.mapper.TableMapper;
 import com.foodordering.mapper.UserCommentMapper;
@@ -63,6 +65,16 @@ public class AdminService {
             .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
     private static final Set<String> FEEDBACK_STATUS_SET = Set.of("OPEN", "IN_PROGRESS", "RESOLVED");
     private static final Set<String> SUPPORT_STATUS_SET = Set.of("OPEN", "CLOSED");
+    private static final Set<String> TABLE_STATUS_SET = Set.of("IDLE", "OCCUPIED", "RESERVED", "MAINTENANCE");
+    private static final Map<String, Integer> TABLE_STATUS_TO_DB = Map.of(
+            "IDLE", 0,
+            "OCCUPIED", 1,
+            "RESERVED", 2,
+            "MAINTENANCE", 3
+    );
+    private static final Map<Integer, String> DB_TO_TABLE_STATUS = TABLE_STATUS_TO_DB.entrySet()
+            .stream()
+            .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
 
     private final AdminUserAccountMapper adminUserAccountMapper;
     private final AdminNoticeMapper adminNoticeMapper;
@@ -75,6 +87,7 @@ public class AdminService {
     private final UserCommentMapper userCommentMapper;
     private final UserFeedbackMapper userFeedbackMapper;
     private final SupportTicketRecordMapper supportTicketRecordMapper;
+    private final SupportTicketMessageMapper supportTicketMessageMapper;
     private final AdminJwtTokenService adminJwtTokenService;
     private final PasswordEncoder passwordEncoder;
 
@@ -90,6 +103,7 @@ public class AdminService {
             UserCommentMapper userCommentMapper,
             UserFeedbackMapper userFeedbackMapper,
             SupportTicketRecordMapper supportTicketRecordMapper,
+            SupportTicketMessageMapper supportTicketMessageMapper,
             AdminJwtTokenService adminJwtTokenService,
             PasswordEncoder passwordEncoder
     ) {
@@ -104,6 +118,7 @@ public class AdminService {
         this.userCommentMapper = userCommentMapper;
         this.userFeedbackMapper = userFeedbackMapper;
         this.supportTicketRecordMapper = supportTicketRecordMapper;
+        this.supportTicketMessageMapper = supportTicketMessageMapper;
         this.adminJwtTokenService = adminJwtTokenService;
         this.passwordEncoder = passwordEncoder;
     }
@@ -732,6 +747,79 @@ public class AdminService {
         return toSupportTicketView(ticket);
     }
 
+    public AdminDtos.PageResult<AdminDtos.SupportTicketMessageView> listTicketMessages(
+            String ticketId,
+            Integer page,
+            Integer pageSize
+    ) {
+        Long id = parseLongId(ticketId, "ticketId");
+        SupportTicketRecord ticket = supportTicketRecordMapper.selectById(id);
+        if (ticket == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "工单不存在");
+        }
+
+        int resolvedPage = page == null ? 1 : Math.max(1, page);
+        int resolvedPageSize = pageSize == null ? 20 : Math.min(200, Math.max(1, pageSize));
+
+        LambdaQueryWrapper<SupportTicketMessage> query = new LambdaQueryWrapper<SupportTicketMessage>()
+                .eq(SupportTicketMessage::getTicketId, id)
+                .orderByDesc(SupportTicketMessage::getCreateTime);
+
+        Page<SupportTicketMessage> pageReq = new Page<>(resolvedPage, resolvedPageSize);
+        Page<SupportTicketMessage> pageRes = supportTicketMessageMapper.selectPage(pageReq, query);
+
+        List<AdminDtos.SupportTicketMessageView> list = pageRes.getRecords().stream()
+                .map(this::toMessageView)
+                .toList();
+
+        return new AdminDtos.PageResult<>(list, pageRes.getTotal(), resolvedPage, resolvedPageSize);
+    }
+
+    public AdminDtos.SupportTicketMessageView sendMessage(
+            String ticketId,
+            AdminDtos.SendMessageRequest request,
+            AdminUserAccount sender
+    ) {
+        if (request == null || !StringUtils.hasText(request.content())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "消息内容不能为空");
+        }
+
+        Long id = parseLongId(ticketId, "ticketId");
+        SupportTicketRecord ticket = supportTicketRecordMapper.selectById(id);
+        if (ticket == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "工单不存在");
+        }
+
+        SupportTicketMessage message = new SupportTicketMessage();
+        message.setTicketId(id);
+        message.setSenderType("ADMIN");
+        message.setSenderId(String.valueOf(sender.getId()));
+        message.setSenderName(sender.getDisplayName());
+        message.setContent(request.content().trim());
+        message.setIsRead(0);
+        message.setCreateTime(LocalDateTime.now());
+        supportTicketMessageMapper.insert(message);
+
+        ticket.setLastMessageAt(LocalDateTime.now());
+        ticket.setUpdateTime(LocalDateTime.now());
+        supportTicketRecordMapper.updateById(ticket);
+
+        return toMessageView(message);
+    }
+
+    private AdminDtos.SupportTicketMessageView toMessageView(SupportTicketMessage message) {
+        return new AdminDtos.SupportTicketMessageView(
+                String.valueOf(message.getId()),
+                String.valueOf(message.getTicketId()),
+                message.getSenderType(),
+                message.getSenderId(),
+                message.getSenderName(),
+                message.getContent(),
+                message.getIsRead() != null && message.getIsRead() == 1,
+                toIso(message.getCreateTime())
+        );
+    }
+
     private List<AdminDtos.OrderView> buildOrderViews(List<Order> orders) {
         if (orders == null || orders.isEmpty()) {
             return List.of();
@@ -1003,5 +1091,191 @@ public class AdminService {
             return null;
         }
         return time.atZone(ZoneId.systemDefault()).toInstant().toString();
+    }
+
+    public AdminDtos.PageResult<AdminDtos.TableView> listTablesPaged(
+            int page,
+            int pageSize,
+            String keyword,
+            String status,
+            String area
+    ) {
+        int resolvedPage = Math.max(1, page);
+        int resolvedPageSize = pageSize <= 0 ? 20 : Math.min(200, pageSize);
+
+        LambdaQueryWrapper<Table> query = new LambdaQueryWrapper<Table>()
+                .orderByDesc(Table::getCreateTime);
+
+        String trimmedStatus = trimToNull(status);
+        if (trimmedStatus != null) {
+            String normalized = trimmedStatus.trim().toUpperCase();
+            Integer statusCode = TABLE_STATUS_TO_DB.get(normalized);
+            if (statusCode != null) {
+                query.eq(Table::getStatus, statusCode);
+            }
+        }
+
+        String trimmedArea = trimToNull(area);
+        if (trimmedArea != null) {
+            query.like(Table::getLocation, trimmedArea);
+        }
+
+        String q = trimToNull(keyword);
+        if (q != null) {
+            Long idKeyword = parseLongOrNull(q);
+            query.and(w -> {
+                w.like(Table::getTableNo, q);
+                if (idKeyword != null) {
+                    w.or().eq(Table::getId, idKeyword);
+                }
+            });
+        }
+
+        Page<Table> pageReq = new Page<>(resolvedPage, resolvedPageSize);
+        Page<Table> pageRes = tableMapper.selectPage(pageReq, query);
+        List<AdminDtos.TableView> list = pageRes.getRecords().stream()
+                .map(this::toTableView)
+                .toList();
+        return new AdminDtos.PageResult<>(list, pageRes.getTotal(), resolvedPage, resolvedPageSize);
+    }
+
+    public AdminDtos.TableView getTableDetail(String tableId) {
+        Long id = parseLongId(tableId, "tableId");
+        Table table = tableMapper.selectById(id);
+        if (table == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "桌码不存在");
+        }
+        return toTableView(table);
+    }
+
+    public AdminDtos.TableView createTable(AdminDtos.TableUpsertRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请求体不能为空");
+        }
+        if (!StringUtils.hasText(request.tableNo())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "桌台编号不能为空");
+        }
+        if (request.capacity() == null || request.capacity() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "容纳人数必须大于0");
+        }
+
+        String tableNo = request.tableNo().trim();
+        Long existingCount = tableMapper.selectCount(
+                new LambdaQueryWrapper<Table>().eq(Table::getTableNo, tableNo)
+        );
+        if (existingCount != null && existingCount > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "桌台编号已存在");
+        }
+
+        Table table = new Table();
+        table.setTableNo(tableNo);
+        table.setCapacity(request.capacity());
+        table.setStatus(0);
+        table.setLocation(trimToNull(request.location()));
+        table.setCreateTime(LocalDateTime.now());
+        table.setUpdateTime(LocalDateTime.now());
+        tableMapper.insert(table);
+        return toTableView(table);
+    }
+
+    public AdminDtos.TableView updateTable(String tableId, AdminDtos.TableUpsertRequest request) {
+        Long id = parseLongId(tableId, "tableId");
+        Table table = tableMapper.selectById(id);
+        if (table == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "桌码不存在");
+        }
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请求体不能为空");
+        }
+
+        if (request.tableNo() != null) {
+            String tableNo = request.tableNo().trim();
+            if (tableNo.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "桌台编号不能为空");
+            }
+            if (!tableNo.equals(table.getTableNo())) {
+                Long existingCount = tableMapper.selectCount(
+                        new LambdaQueryWrapper<Table>().eq(Table::getTableNo, tableNo)
+                );
+                if (existingCount != null && existingCount > 0) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "桌台编号已存在");
+                }
+                table.setTableNo(tableNo);
+            }
+        }
+
+        if (request.capacity() != null) {
+            if (request.capacity() <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "容纳人数必须大于0");
+            }
+            table.setCapacity(request.capacity());
+        }
+
+        if (request.location() != null) {
+            table.setLocation(trimToNull(request.location()));
+        }
+
+        table.setUpdateTime(LocalDateTime.now());
+        tableMapper.updateById(table);
+        return toTableView(table);
+    }
+
+    public void deleteTable(String tableId) {
+        Long id = parseLongId(tableId, "tableId");
+        Table table = tableMapper.selectById(id);
+        if (table == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "桌码不存在");
+        }
+
+        Long orderCount = orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>().eq(Order::getTableId, id)
+        );
+        if (orderCount != null && orderCount > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该桌台存在关联订单，无法删除");
+        }
+
+        tableMapper.deleteById(id);
+    }
+
+    public AdminDtos.TableView updateTableStatus(String tableId, AdminDtos.TableStatusUpdateRequest request) {
+        Long id = parseLongId(tableId, "tableId");
+        Table table = tableMapper.selectById(id);
+        if (table == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "桌码不存在");
+        }
+
+        String status = parseTableStatus(request == null ? null : request.status());
+        Integer statusCode = TABLE_STATUS_TO_DB.get(status);
+        table.setStatus(statusCode);
+        table.setUpdateTime(LocalDateTime.now());
+        tableMapper.updateById(table);
+        return toTableView(table);
+    }
+
+    private AdminDtos.TableView toTableView(Table table) {
+        String statusStr = DB_TO_TABLE_STATUS.getOrDefault(
+                table.getStatus() == null ? 0 : table.getStatus(), "IDLE"
+        );
+        return new AdminDtos.TableView(
+                String.valueOf(table.getId()),
+                table.getTableNo(),
+                table.getCapacity() == null ? 0 : table.getCapacity(),
+                statusStr,
+                table.getLocation(),
+                null,
+                toIso(table.getCreateTime()),
+                toIso(table.getUpdateTime())
+        );
+    }
+
+    private String parseTableStatus(String status) {
+        if (!StringUtils.hasText(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "状态不能为空");
+        }
+        String normalized = status.trim().toUpperCase();
+        if (!TABLE_STATUS_SET.contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "非法桌码状态: " + status);
+        }
+        return normalized;
     }
 }

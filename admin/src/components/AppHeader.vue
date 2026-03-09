@@ -28,8 +28,8 @@ const handleLogout = () => {
     <div class="flex gap-4 items-center">
       <!-- Logout -->
       <button 
-        @click="handleLogout" 
-        class="flex gap-2 items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors text-white/70 hover:text-red-400 hover:bg-white/5"
+        class="flex gap-2 items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors text-white/70 hover:text-red-400 hover:bg-white/5" 
+        @click="handleLogout"
       >
         <LogOut class="w-4 h-4" />
         <span class="hidden sm:inline">退出登录</span>

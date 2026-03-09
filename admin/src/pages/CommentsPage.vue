@@ -12,17 +12,25 @@ const comments = ref([
 
 <template>
   <div class="space-y-6">
-    <h1 class="text-2xl font-bold text-white tracking-tight">评论管理</h1>
+    <h1 class="text-2xl font-bold text-white tracking-tight">
+      评论管理
+    </h1>
 
     <div class="grid gap-4">
-      <Card v-for="comment in comments" :key="comment.id" class="group hover:border-white/20 transition-all">
+      <Card
+        v-for="comment in comments"
+        :key="comment.id"
+        class="group hover:border-white/20 transition-all"
+      >
         <div class="flex justify-between items-start mb-2">
           <div class="flex items-center gap-2">
             <span class="font-bold text-white">{{ comment.user }}</span>
             <span class="text-white/40 text-sm">点评了</span>
             <span class="text-cyan-300 font-medium">{{ comment.dish }}</span>
           </div>
-          <div class="text-white/30 text-xs">{{ comment.date }}</div>
+          <div class="text-white/30 text-xs">
+            {{ comment.date }}
+          </div>
         </div>
         
         <div class="flex items-center gap-1 mb-3">
@@ -34,7 +42,9 @@ const comments = ref([
           />
         </div>
 
-        <p class="text-white/80 mb-4 bg-white/5 p-3 rounded-lg border border-white/5">{{ comment.content }}</p>
+        <p class="text-white/80 mb-4 bg-white/5 p-3 rounded-lg border border-white/5">
+          {{ comment.content }}
+        </p>
 
         <div class="flex justify-end">
           <button class="glass-btn-secondary flex items-center gap-2 text-sm py-1.5">

@@ -13,8 +13,12 @@ import type {
   Order,
   OrderStatus,
   PageResult,
+  SendMessageRequest,
   SupportTicket,
   SupportTicketDetail,
+  SupportTicketMessage,
+  Table,
+  TableStatus,
 } from '@/types'
 import {
   mockCreateDishApi,
@@ -279,5 +283,119 @@ export const api = {
     if (useMock()) return fromMock(() => mockUpdateSupportTicketStatusApi(payload))
     const { ticketId, status } = payload
     return fromHttp(() => http.patch(`${ADMIN_API_PREFIX}/support/tickets/${ticketId}/status`, { status }))
+  },
+
+  async listTicketMessages(ticketId: string, params?: { page?: number; pageSize?: number }): Promise<PageResult<SupportTicketMessage>> {
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/support/tickets/${ticketId}/messages`, { params }))
+  },
+
+  async sendTicketMessage(ticketId: string, request: SendMessageRequest): Promise<SupportTicketMessage> {
+    return fromHttp(() => http.post(`${ADMIN_API_PREFIX}/support/tickets/${ticketId}/messages`, request))
+  },
+
+  async listTablesPaged(params?: {
+    page?: number
+    pageSize?: number
+    keyword?: string
+    status?: TableStatus
+    area?: string
+  }): Promise<PageResult<Table>> {
+    if (useMock()) {
+      const mockTables: Table[] = [
+        { id: '1', tableNo: 'A01', capacity: 4, status: 'IDLE', location: '一楼大厅', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '2', tableNo: 'A02', capacity: 6, status: 'OCCUPIED', location: '一楼大厅', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '3', tableNo: 'B01', capacity: 8, status: 'IDLE', location: '二楼包间', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '4', tableNo: 'B02', capacity: 4, status: 'MAINTENANCE', location: '二楼包间', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ]
+      return fromMock(() => Promise.resolve({
+        list: mockTables,
+        total: mockTables.length,
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 20,
+      }))
+    }
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/tables`, { params }))
+  },
+
+  async getTableDetail(tableId: string): Promise<Table> {
+    if (useMock()) {
+      return fromMock(() => Promise.resolve({
+        id: tableId,
+        tableNo: 'A01',
+        capacity: 4,
+        status: 'IDLE',
+        location: '一楼大厅',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }))
+    }
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/tables/${tableId}`))
+  },
+
+  async createTable(payload: {
+    tableNo: string
+    capacity: number
+    location?: string
+    area?: string
+  }): Promise<Table> {
+    if (useMock()) {
+      return fromMock(() => Promise.resolve({
+        id: String(Date.now()),
+        tableNo: payload.tableNo,
+        capacity: payload.capacity,
+        status: 'IDLE',
+        location: payload.location,
+        area: payload.area,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }))
+    }
+    return fromHttp(() => http.post(`${ADMIN_API_PREFIX}/tables`, payload))
+  },
+
+  async updateTable(payload: {
+    tableId: string
+    tableNo: string
+    capacity: number
+    location?: string
+    area?: string
+  }): Promise<Table> {
+    if (useMock()) {
+      return fromMock(() => Promise.resolve({
+        id: payload.tableId,
+        tableNo: payload.tableNo,
+        capacity: payload.capacity,
+        status: 'IDLE',
+        location: payload.location,
+        area: payload.area,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }))
+    }
+    const { tableId, ...body } = payload
+    return fromHttp(() => http.put(`${ADMIN_API_PREFIX}/tables/${tableId}`, body))
+  },
+
+  async deleteTable(tableId: string): Promise<void> {
+    if (useMock()) {
+      return fromMock(() => Promise.resolve())
+    }
+    return fromHttp(() => http.delete(`${ADMIN_API_PREFIX}/tables/${tableId}`))
+  },
+
+  async updateTableStatus(payload: { tableId: string; status: TableStatus }): Promise<Table> {
+    if (useMock()) {
+      return fromMock(() => Promise.resolve({
+        id: payload.tableId,
+        tableNo: 'A01',
+        capacity: 4,
+        status: payload.status,
+        location: '一楼大厅',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }))
+    }
+    const { tableId, status } = payload
+    return fromHttp(() => http.patch(`${ADMIN_API_PREFIX}/tables/${tableId}/status`, { status }))
   },
 }

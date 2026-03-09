@@ -120,30 +120,61 @@ onMounted(() => loadUsers())
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-white tracking-tight">用户管理</h1>
+      <h1 class="text-2xl font-bold text-white tracking-tight">
+        用户管理
+      </h1>
       <div class="flex items-center gap-3">
-        <select v-model="statusFilter" class="glass-input h-10 px-3 w-28">
-          <option value="ALL">全部</option>
-          <option value="ACTIVE">正常</option>
-          <option value="INACTIVE">禁用</option>
+        <select
+          v-model="statusFilter"
+          class="glass-input h-10 px-3 w-28"
+        >
+          <option value="ALL">
+            全部
+          </option>
+          <option value="ACTIVE">
+            正常
+          </option>
+          <option value="INACTIVE">
+            禁用
+          </option>
         </select>
-        <select v-model.number="pageSize" class="glass-input h-10 px-3 w-28">
-          <option :value="10">10/页</option>
-          <option :value="20">20/页</option>
-          <option :value="50">50/页</option>
+        <select
+          v-model.number="pageSize"
+          class="glass-input h-10 px-3 w-28"
+        >
+          <option :value="10">
+            10/页
+          </option>
+          <option :value="20">
+            20/页
+          </option>
+          <option :value="50">
+            50/页
+          </option>
         </select>
         <div class="relative w-64">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 w-4 h-4" />
-          <input v-model.trim="keyword" type="text" placeholder="搜索用户..." class="glass-input pl-9 h-10" />
+          <input
+            v-model.trim="keyword"
+            type="text"
+            placeholder="搜索用户..."
+            class="glass-input pl-9 h-10"
+          >
         </div>
       </div>
     </div>
 
-    <div v-if="errorMsg" class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+    <div
+      v-if="errorMsg"
+      class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
+    >
       {{ errorMsg }}
     </div>
 
-    <Card no-padding class="overflow-hidden">
+    <Card
+      no-padding
+      class="overflow-hidden"
+    >
       <table class="glass-table">
         <thead>
           <tr>
@@ -152,17 +183,33 @@ onMounted(() => loadUsers())
             <th>订单数</th>
             <th>最后活跃</th>
             <th>状态</th>
-            <th class="text-right">操作</th>
+            <th class="text-right">
+              操作
+            </th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="6" class="py-8 text-center text-white/40">加载中...</td>
+            <td
+              colspan="6"
+              class="py-8 text-center text-white/40"
+            >
+              加载中...
+            </td>
           </tr>
           <tr v-else-if="users.length === 0">
-            <td colspan="6" class="py-8 text-center text-white/40">暂无数据</td>
+            <td
+              colspan="6"
+              class="py-8 text-center text-white/40"
+            >
+              暂无数据
+            </td>
           </tr>
-          <tr v-for="user in users" :key="user.id" class="group">
+          <tr
+            v-for="user in users"
+            :key="user.id"
+            class="group"
+          >
             <td>
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold text-white">
@@ -171,9 +218,15 @@ onMounted(() => loadUsers())
                 <span class="font-medium text-white">{{ user.nickname }}</span>
               </div>
             </td>
-            <td class="text-white/70">{{ user.phone || '未绑定' }}</td>
-            <td class="text-white/70">{{ user.orderCount }}</td>
-            <td class="text-white/40 text-sm">{{ new Date(user.lastActiveAt).toLocaleString() }}</td>
+            <td class="text-white/70">
+              {{ user.phone || '未绑定' }}
+            </td>
+            <td class="text-white/70">
+              {{ user.orderCount }}
+            </td>
+            <td class="text-white/40 text-sm">
+              {{ new Date(user.lastActiveAt).toLocaleString() }}
+            </td>
             <td>
               <span :class="['glass-badge', user.status === 'ACTIVE' ? 'bg-green-500/20 text-green-200 border-green-500/30' : 'bg-white/10 text-white/50 border-white/20']">
                 {{ user.status === 'ACTIVE' ? '正常' : '禁用' }}
@@ -193,8 +246,14 @@ onMounted(() => loadUsers())
                   :disabled="updatingId === user.id"
                   @click="toggleStatus(user)"
                 >
-                  <UserX v-if="user.status === 'ACTIVE'" class="w-4 h-4" />
-                  <UserCheck v-else class="w-4 h-4" />
+                  <UserX
+                    v-if="user.status === 'ACTIVE'"
+                    class="w-4 h-4"
+                  />
+                  <UserCheck
+                    v-else
+                    class="w-4 h-4"
+                  />
                   <span class="text-xs">{{ user.status === 'ACTIVE' ? '禁用' : '启用' }}</span>
                 </button>
               </div>
@@ -203,25 +262,56 @@ onMounted(() => loadUsers())
         </tbody>
       </table>
       <div class="flex items-center justify-between px-4 py-3 border-t border-white/10 bg-black/20">
-        <div class="text-sm text-white/50">显示 {{ rangeFrom }}-{{ rangeTo }} 共 {{ total }} 条</div>
+        <div class="text-sm text-white/50">
+          显示 {{ rangeFrom }}-{{ rangeTo }} 共 {{ total }} 条
+        </div>
         <div class="flex items-center gap-2">
-          <button class="glass-btn-secondary px-3 py-2 text-sm" :disabled="page <= 1" @click="prevPage">上一页</button>
-          <div class="text-sm text-white/60">第 {{ page }} / {{ pageCount }} 页</div>
-          <button class="glass-btn-secondary px-3 py-2 text-sm" :disabled="page >= pageCount" @click="nextPage">下一页</button>
+          <button
+            class="glass-btn-secondary px-3 py-2 text-sm"
+            :disabled="page <= 1"
+            @click="prevPage"
+          >
+            上一页
+          </button>
+          <div class="text-sm text-white/60">
+            第 {{ page }} / {{ pageCount }} 页
+          </div>
+          <button
+            class="glass-btn-secondary px-3 py-2 text-sm"
+            :disabled="page >= pageCount"
+            @click="nextPage"
+          >
+            下一页
+          </button>
         </div>
       </div>
     </Card>
 
-    <GlassModal v-model="detailOpen" title="客户详情">
-      <div v-if="detailLoading" class="py-8 text-center text-white/50">加载中...</div>
-      <div v-else-if="detailUser" class="space-y-4">
+    <GlassModal
+      v-model="detailOpen"
+      title="客户详情"
+    >
+      <div
+        v-if="detailLoading"
+        class="py-8 text-center text-white/50"
+      >
+        加载中...
+      </div>
+      <div
+        v-else-if="detailUser"
+        class="space-y-4"
+      >
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold text-white">
             {{ detailUser.nickname.charAt(0) }}
           </div>
           <div>
-            <div class="text-white font-semibold">{{ detailUser.nickname }}</div>
-            <div class="text-white/40 text-sm">ID：{{ detailUser.id }}</div>
+            <div class="text-white font-semibold">
+              {{ detailUser.nickname }}
+            </div>
+            <div class="text-white/40 text-sm">
+              ID：{{ detailUser.id }}
+            </div>
           </div>
           <div class="ml-auto">
             <span :class="['glass-badge', detailUser.status === 'ACTIVE' ? 'bg-green-500/20 text-green-200 border-green-500/30' : 'bg-white/10 text-white/50 border-white/20']">
@@ -232,30 +322,55 @@ onMounted(() => loadUsers())
 
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-            <div class="text-white/40">手机号</div>
-            <div class="text-white/80">{{ detailUser.phone || '未绑定' }}</div>
+            <div class="text-white/40">
+              手机号
+            </div>
+            <div class="text-white/80">
+              {{ detailUser.phone || '未绑定' }}
+            </div>
           </div>
           <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-            <div class="text-white/40">邮箱</div>
-            <div class="text-white/80">{{ detailUser.email || '未绑定' }}</div>
+            <div class="text-white/40">
+              邮箱
+            </div>
+            <div class="text-white/80">
+              {{ detailUser.email || '未绑定' }}
+            </div>
           </div>
           <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-            <div class="text-white/40">订单数</div>
-            <div class="text-white/80">{{ detailUser.orderCount }}</div>
+            <div class="text-white/40">
+              订单数
+            </div>
+            <div class="text-white/80">
+              {{ detailUser.orderCount }}
+            </div>
           </div>
           <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-            <div class="text-white/40">最后活跃</div>
-            <div class="text-white/80">{{ new Date(detailUser.lastActiveAt).toLocaleString() }}</div>
+            <div class="text-white/40">
+              最后活跃
+            </div>
+            <div class="text-white/80">
+              {{ new Date(detailUser.lastActiveAt).toLocaleString() }}
+            </div>
           </div>
           <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 col-span-2">
-            <div class="text-white/40">注册时间</div>
-            <div class="text-white/80">{{ new Date(detailUser.createdAt).toLocaleString() }}</div>
+            <div class="text-white/40">
+              注册时间
+            </div>
+            <div class="text-white/80">
+              {{ new Date(detailUser.createdAt).toLocaleString() }}
+            </div>
           </div>
         </div>
       </div>
 
       <template #footer>
-        <button class="glass-btn-secondary" @click="detailOpen = false">关闭</button>
+        <button
+          class="glass-btn-secondary"
+          @click="detailOpen = false"
+        >
+          关闭
+        </button>
         <button
           v-if="detailUser"
           class="glass-btn"

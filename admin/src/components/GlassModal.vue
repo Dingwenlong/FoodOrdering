@@ -13,21 +13,26 @@ defineEmits<{
 
 <template>
   <Transition name="modal">
-    <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      v-if="modelValue"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
       <!-- Backdrop -->
       <div 
         class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
         @click="$emit('update:modelValue', false)"
-      ></div>
+      />
 
       <!-- Modal Content -->
       <div class="glass-card w-full max-w-lg relative z-10 overflow-hidden shadow-2xl shadow-black/50 border border-white/10 flex flex-col max-h-[90vh]">
         <!-- Header -->
         <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/5">
-          <h3 class="text-lg font-bold text-white tracking-wide">{{ title }}</h3>
+          <h3 class="text-lg font-bold text-white tracking-wide">
+            {{ title }}
+          </h3>
           <button 
-            @click="$emit('update:modelValue', false)"
             class="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+            @click="$emit('update:modelValue', false)"
           >
             <X class="w-5 h-5" />
           </button>
@@ -35,12 +40,15 @@ defineEmits<{
 
         <!-- Body -->
         <div class="p-6 overflow-y-auto custom-scrollbar">
-          <slot></slot>
+          <slot />
         </div>
 
         <!-- Footer -->
-        <div v-if="$slots.footer" class="px-6 py-4 border-t border-white/10 bg-black/20 flex justify-end gap-3">
-          <slot name="footer"></slot>
+        <div
+          v-if="$slots.footer"
+          class="px-6 py-4 border-t border-white/10 bg-black/20 flex justify-end gap-3"
+        >
+          <slot name="footer" />
         </div>
       </div>
     </div>

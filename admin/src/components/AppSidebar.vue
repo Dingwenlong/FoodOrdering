@@ -9,7 +9,8 @@ import {
   MessageSquare, 
   HelpCircle, 
   Settings,
-  Bell
+  Bell,
+  QrCode
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -17,6 +18,7 @@ const route = useRoute()
 const menuItems = [
   { name: '订单管理', path: '/orders', icon: ShoppingBag },
   { name: '菜品管理', path: '/menu', icon: Utensils },
+  { name: '桌台管理', path: '/tables', icon: QrCode },
   { name: '用户管理', path: '/users', icon: Users },
   { name: '数据统计', path: '/stats', icon: BarChart2 },
   { name: '公告管理', path: '/notices', icon: Bell },
@@ -33,7 +35,11 @@ const isActive = (path: string) => route.path.startsWith(path)
     <!-- Logo Area -->
     <div class="h-16 flex items-center px-6 border-b border-white/5">
       <div class="w-8 h-8 mr-3 rounded-lg overflow-hidden ring-1 ring-white/10 shadow-lg shadow-cyan-500/20 bg-white/5">
-        <img src="/Logo.png" alt="FoodOS Logo" class="w-full h-full object-cover" />
+        <img
+          src="/Logo.png"
+          alt="FoodOS Logo"
+          class="w-full h-full object-cover"
+        >
       </div>
       <span class="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
         FoodOS
@@ -52,7 +58,10 @@ const isActive = (path: string) => route.path.startsWith(path)
           : 'text-white/60 hover:text-white hover:bg-white/5'"
       >
         <!-- Active Indicator -->
-        <div v-if="isActive(item.path)" class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-cyan-400 rounded-r-full shadow-[0_0_10px_rgba(34,211,238,0.5)]"></div>
+        <div
+          v-if="isActive(item.path)"
+          class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-cyan-400 rounded-r-full shadow-[0_0_10px_rgba(34,211,238,0.5)]"
+        />
 
         <component 
           :is="item.icon" 
@@ -72,8 +81,12 @@ const isActive = (path: string) => route.path.startsWith(path)
           </div>
         </div>
         <div>
-          <div class="text-sm font-medium text-white">管理员</div>
-          <div class="text-xs text-white/40">admin@foodos.com</div>
+          <div class="text-sm font-medium text-white">
+            管理员
+          </div>
+          <div class="text-xs text-white/40">
+            admin@foodos.com
+          </div>
         </div>
       </div>
     </div>

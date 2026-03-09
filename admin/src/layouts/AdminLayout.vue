@@ -17,7 +17,10 @@ import AppSidebar from '../components/AppSidebar.vue'
       <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8 scroll-smooth">
         <div class="max-w-7xl mx-auto space-y-6">
           <router-view v-slot="{ Component }">
-            <transition name="fade-slide" mode="out-in">
+            <transition
+              name="fade-slide"
+              mode="out-in"
+            >
               <component :is="Component" />
             </transition>
           </router-view>

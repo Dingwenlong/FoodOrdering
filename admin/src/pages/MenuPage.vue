@@ -149,18 +149,30 @@ onMounted(async () => {
   <div class="space-y-6">
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-      <h1 class="text-2xl font-bold text-white tracking-tight">菜品管理</h1>
+      <h1 class="text-2xl font-bold text-white tracking-tight">
+        菜品管理
+      </h1>
       <div class="flex gap-3">
-        <button class="glass-btn-secondary flex items-center gap-2" :disabled="loading" @click="loadMenu">
+        <button
+          class="glass-btn-secondary flex items-center gap-2"
+          :disabled="loading"
+          @click="loadMenu"
+        >
           <Filter class="w-4 h-4" /> 筛选
         </button>
-        <button @click="openAdd" class="glass-btn flex items-center gap-2">
+        <button
+          class="glass-btn flex items-center gap-2"
+          @click="openAdd"
+        >
           <Plus class="w-5 h-5" /> 新增菜品
         </button>
       </div>
     </div>
 
-    <div v-if="errorMsg" class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+    <div
+      v-if="errorMsg"
+      class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
+    >
       {{ errorMsg }}
     </div>
 
@@ -172,11 +184,14 @@ onMounted(async () => {
         type="text" 
         placeholder="搜索菜品名称..." 
         class="glass-input pl-10"
-      />
+      >
     </div>
 
     <!-- Table -->
-    <Card no-padding class="overflow-hidden">
+    <Card
+      no-padding
+      class="overflow-hidden"
+    >
       <div class="overflow-x-auto">
         <table class="glass-table">
           <thead>
@@ -186,32 +201,60 @@ onMounted(async () => {
               <th>分类</th>
               <th>价格</th>
               <th>状态</th>
-              <th class="text-right">操作</th>
+              <th class="text-right">
+                操作
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="6" class="py-8 text-center text-white/40">加载中...</td>
+              <td
+                colspan="6"
+                class="py-8 text-center text-white/40"
+              >
+                加载中...
+              </td>
             </tr>
             <tr v-else-if="dishRows.length === 0">
-              <td colspan="6" class="py-8 text-center text-white/40">暂无菜品</td>
+              <td
+                colspan="6"
+                class="py-8 text-center text-white/40"
+              >
+                暂无菜品
+              </td>
             </tr>
-            <tr v-for="dish in dishRows" :key="dish.id" class="group">
+            <tr
+              v-for="dish in dishRows"
+              :key="dish.id"
+              class="group"
+            >
               <td>
                 <div class="w-12 h-12 rounded-lg bg-white/10 overflow-hidden border border-white/10">
-                  <div class="w-full h-full flex items-center justify-center text-xs text-white/30">暂无图</div>
+                  <div class="w-full h-full flex items-center justify-center text-xs text-white/30">
+                    暂无图
+                  </div>
                 </div>
               </td>
-              <td class="font-bold text-white">{{ dish.name }}</td>
-              <td class="text-white/70"><span class="glass-badge bg-blue-500/20 text-blue-200 border-blue-500/30">{{ dish.categoryName }}</span></td>
-              <td class="font-bold text-cyan-300">¥{{ (dish.priceFen / 100).toFixed(2) }}</td>
+              <td class="font-bold text-white">
+                {{ dish.name }}
+              </td>
+              <td class="text-white/70">
+                <span class="glass-badge bg-blue-500/20 text-blue-200 border-blue-500/30">{{ dish.categoryName }}</span>
+              </td>
+              <td class="font-bold text-cyan-300">
+                ¥{{ (dish.priceFen / 100).toFixed(2) }}
+              </td>
               <td>
                 <span :class="['glass-badge', dish.onSale && !dish.soldOut ? 'bg-green-500/20 text-green-200 border-green-500/30' : 'bg-red-500/20 text-red-200 border-red-500/30']">
                   {{ dish.soldOut ? '已售罄' : (dish.onSale ? '上架中' : '已下架') }}
                 </span>
               </td>
               <td class="text-right space-x-2">
-                <button @click="openEdit(dish)" class="p-2 hover:bg-white/10 rounded-lg text-cyan-400 transition-colors" title="编辑">
+                <button
+                  class="p-2 hover:bg-white/10 rounded-lg text-cyan-400 transition-colors"
+                  title="编辑"
+                  @click="openEdit(dish)"
+                >
                   <Edit2 class="w-4 h-4" />
                 </button>
                 <button
@@ -230,34 +273,74 @@ onMounted(async () => {
     </Card>
 
     <!-- Edit Modal -->
-    <GlassModal v-model="showModal" :title="isEdit ? '编辑菜品' : '新增菜品'">
+    <GlassModal
+      v-model="showModal"
+      :title="isEdit ? '编辑菜品' : '新增菜品'"
+    >
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-white/60 mb-1">菜品名称</label>
-          <input v-model="form.name" type="text" class="glass-input" />
+          <input
+            v-model="form.name"
+            type="text"
+            class="glass-input"
+          >
         </div>
         <div>
           <label class="block text-sm font-medium text-white/60 mb-1">价格 (分)</label>
-          <input v-model.number="form.priceFen" type="number" class="glass-input" />
+          <input
+            v-model.number="form.priceFen"
+            type="number"
+            class="glass-input"
+          >
         </div>
         <div>
           <label class="block text-sm font-medium text-white/60 mb-1">所属分类</label>
-          <select v-model="form.categoryId" class="glass-select w-full">
-            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+          <select
+            v-model="form.categoryId"
+            class="glass-select w-full"
+          >
+            <option
+              v-for="c in categories"
+              :key="c.id"
+              :value="c.id"
+            >
+              {{ c.name }}
+            </option>
           </select>
         </div>
         <div class="flex items-center gap-2">
-          <input type="checkbox" v-model="form.onSale" class="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-cyan-500/50" />
+          <input
+            v-model="form.onSale"
+            type="checkbox"
+            class="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-cyan-500/50"
+          >
           <span class="text-white/80">立即上架</span>
         </div>
         <div class="flex items-center gap-2">
-          <input type="checkbox" v-model="form.soldOut" class="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-cyan-500/50" />
+          <input
+            v-model="form.soldOut"
+            type="checkbox"
+            class="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-cyan-500/50"
+          >
           <span class="text-white/80">标记为售罄</span>
         </div>
       </div>
       <template #footer>
-        <button @click="showModal = false" class="glass-btn-secondary" :disabled="saving">取消</button>
-        <button @click="saveDish" class="glass-btn" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
+        <button
+          class="glass-btn-secondary"
+          :disabled="saving"
+          @click="showModal = false"
+        >
+          取消
+        </button>
+        <button
+          class="glass-btn"
+          :disabled="saving"
+          @click="saveDish"
+        >
+          {{ saving ? '保存中...' : '保存' }}
+        </button>
       </template>
     </GlassModal>
   </div>

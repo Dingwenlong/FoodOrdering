@@ -71,6 +71,34 @@ public final class AdminDtos {
     ) {
     }
 
+    @Schema(description = "桌码创建/更新请求")
+    public record TableUpsertRequest(
+            @Schema(description = "桌台编号") String tableNo,
+            @Schema(description = "容纳人数") Integer capacity,
+            @Schema(description = "位置描述") String location,
+            @Schema(description = "所属区域") String area
+    ) {
+    }
+
+    @Schema(description = "桌码状态更新请求")
+    public record TableStatusUpdateRequest(
+            @Schema(description = "状态", example = "IDLE") String status
+    ) {
+    }
+
+    @Schema(description = "桌码视图")
+    public record TableView(
+            @Schema(description = "桌码ID") String id,
+            @Schema(description = "桌台编号") String tableNo,
+            @Schema(description = "容纳人数") int capacity,
+            @Schema(description = "状态：IDLE/OCCUPIED/RESERVED/MAINTENANCE") String status,
+            @Schema(description = "位置描述") String location,
+            @Schema(description = "所属区域") String area,
+            @Schema(description = "创建时间") String createdAt,
+            @Schema(description = "更新时间") String updatedAt
+    ) {
+    }
+
     @Schema(description = "管理员登录响应")
     public record LoginResponse(
             @Schema(description = "JWT Token") String token,
@@ -246,6 +274,25 @@ public final class AdminDtos {
             @Schema(description = "工单状态") String status,
             @Schema(description = "创建时间") String createdAt,
             @Schema(description = "更新时间") String updatedAt
+    ) {
+    }
+
+    @Schema(description = "发送消息请求")
+    public record SendMessageRequest(
+            @Schema(description = "消息内容") String content
+    ) {
+    }
+
+    @Schema(description = "工单消息视图")
+    public record SupportTicketMessageView(
+            @Schema(description = "消息ID") String id,
+            @Schema(description = "工单ID") String ticketId,
+            @Schema(description = "发送者类型：USER/ADMIN") String senderType,
+            @Schema(description = "发送者ID") String senderId,
+            @Schema(description = "发送者名称") String senderName,
+            @Schema(description = "消息内容") String content,
+            @Schema(description = "是否已读") boolean isRead,
+            @Schema(description = "发送时间") String createdAt
     ) {
     }
 }
