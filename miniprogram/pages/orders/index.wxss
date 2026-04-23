@@ -18,18 +18,7 @@
   color: #fff;
 }
 
-.refresh-btn {
-  margin: 0;
-  width: auto;
-  min-width: 132rpx;
-  height: 64rpx;
-  line-height: 64rpx;
-  border-radius: 32rpx;
-  border: 1rpx solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-size: 24rpx;
-}
+
 
 .loading-state,
 .error-state,

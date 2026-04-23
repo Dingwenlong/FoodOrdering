@@ -1,91 +1,65 @@
 import { request, STORAGE_KEYS } from '../../utils/request';
-import type { Category, Dish } from '../../types/index';
 
-type Notice = {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-};
-
-type CommentItem = {
-  id: string;
+interface Comment {
+  id: number;
   userName: string;
-  content: string;
   rating: number;
+  content: string;
+  images: string[];
   createdAt: string;
-};
+}
 
 Page({
   data: {
-    storeId: '',
-    tableId: '',
-    storeName: '未来餐厅',
+    loading: true,
+    errorMsg: '',
     tableName: '',
-    notices: [] as Notice[],
-    dishes: [] as Dish[],
-    comments: [] as CommentItem[],
-    loading: false,
+    orderCount: 0,
+    comments: [] as Comment[],
   },
 
   onLoad() {
+    console.log('首页加载');
     const session = wx.getStorageSync(STORAGE_KEYS.session);
     if (session) {
-      this.setData({
-        storeId: session.storeId || '',
-        storeName: session.storeName || '未来餐厅',
-        tableId: session.tableId || '',
-        tableName: session.tableName || '',
-      });
+      this.setData({ tableName: session.tableName });
+      this.fetchData();
     } else {
-      wx.reLaunch({ url: '/pages/scan/index' });
-      return;
-    }
-
-    this.fetchHomeData();
-  },
-
-  onPullDownRefresh() {
-    this.fetchHomeData().then(() => {
-      wx.stopPullDownRefresh();
-    });
-  },
-
-  async fetchHomeData() {
-    this.setData({ loading: true });
-    try {
-      const [noticeRes, menuRes, commentRes] = await Promise.all([
-        request<Notice[]>({ url: '/notices', method: 'GET' }),
-        request<{ categories: Category[] }>({ url: '/menu', method: 'GET' }),
-        request<CommentItem[]>({ url: '/comments', method: 'GET' }),
-      ]);
-
-      const allDishes = menuRes.data.categories.flatMap((cat) => cat.dishes);
-
-      this.setData({
-        notices: noticeRes.data || [],
-        dishes: allDishes,
-        comments: commentRes.data || [],
-      });
-    } catch (err) {
-      console.error('Fetch home data failed:', err);
-      wx.showToast({ title: '加载数据失败', icon: 'none' });
-    } finally {
       this.setData({ loading: false });
     }
   },
 
+  async fetchData() {
+    try {
+      this.setData({ loading: true, errorMsg: '' });
+      
+      // 获取顾客评论
+      const commentsRes = await request.get('/v1/comments?limit=3');
+      
+      console.log('评论数据:', commentsRes);
+      
+      this.setData({
+        comments: commentsRes.data || [],
+        loading: false
+      });
+    } catch (err) {
+      console.error('获取数据失败:', err);
+      this.setData({
+        errorMsg: '获取数据失败，请重试',
+        loading: false
+      });
+    }
+  },
+
   goMenu() {
-    wx.navigateTo({
-      url: `/pages/menu/index?storeId=${this.data.storeId}&tableId=${this.data.tableId}`,
-    });
+    wx.navigateTo({ url: '/pages/menu/index' });
   },
 
   goOrders() {
-    wx.navigateTo({ url: '/pages/orders/index' });
+    wx.switchTab({ url: '/pages/orders/index' });
   },
 
-  goSupport() {
-    wx.navigateTo({ url: '/pages/support/index' });
-  },
+  goScan() {
+    wx.navigateTo({ url: '/pages/scan/index' });
+  }
 });

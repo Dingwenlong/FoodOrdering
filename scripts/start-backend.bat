@@ -39,8 +39,8 @@ echo [INFO] Stopping Node.js processes (Vue Admin)...
 taskkill /F /IM node.exe >nul 2>&1
 
 echo [INFO] Stopping conflicting Docker containers...
-docker stop library-mysql library-redis 2>nul
-docker rm library-mysql library-redis 2>nul
+docker stop food_ordering_mysql food_ordering_redis food_ordering_rabbitmq 2>nul
+docker rm food_ordering_mysql food_ordering_redis food_ordering_rabbitmq 2>nul
 
 echo [INFO] Waiting for ports to be released...
 timeout /t 3 /nobreak >nul
@@ -66,13 +66,17 @@ echo [INFO] Starting Docker containers...
 docker-compose -f "%ComposeFile%" up -d
 if errorlevel 1 (
     echo [ERROR] Failed to start Docker services
+    echo [INFO] Please check if ports 23306, 26379, 25672, 25673 are available
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
 echo [OK] Docker services started successfully
-echo   - MySQL: localhost:3306
-echo   - Redis: localhost:6379
-echo   - RabbitMQ: localhost:5672 (Management: localhost:15672)
+echo   - MySQL: localhost:23306
+echo   - Redis: localhost:26379
+echo   - RabbitMQ: localhost:25672 (Management: localhost:25673)
 echo.
 
 echo ========================================
@@ -89,6 +93,9 @@ if exist "mvnw.cmd" (
     where mvn >nul 2>&1
     if errorlevel 1 (
         echo [ERROR] Maven not found. Please install Maven or use Maven Wrapper.
+        echo.
+        echo Press any key to exit...
+        pause >nul
         exit /b 1
     )
     echo [INFO] Using system Maven...
@@ -112,6 +119,9 @@ if not exist "node_modules" (
     call npm install
     if errorlevel 1 (
         echo [ERROR] Failed to install dependencies
+        echo.
+        echo Press any key to exit...
+        pause >nul
         exit /b 1
     )
 )
@@ -126,11 +136,14 @@ echo  All Services Started!
 echo ========================================
 echo.
 echo Services running:
-echo   [Docker]  MySQL      -^> localhost:3306
-echo   [Docker]  Redis      -^> localhost:6379
-echo   [Docker]  RabbitMQ   -^> localhost:5672 (Management: localhost:15672)
+echo   [Docker]  MySQL      -^> localhost:23306
+echo   [Docker]  Redis      -^> localhost:26379
+echo   [Docker]  RabbitMQ   -^> localhost:25672 (Management: localhost:25673)
 echo   [Backend] Spring Boot -^> http://localhost:%BackendPort%
 echo   [Frontend] Vue Admin  -^> http://localhost:%AdminPort%
 echo.
-echo Press any key to exit this window (services will continue running)...
-pause >nul
+echo This window will stay open. Press Ctrl+C or close it manually when you want to stop monitoring.
+echo.
+:keep_open
+timeout /t 60 >nul
+goto keep_open

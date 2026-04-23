@@ -1,11 +1,13 @@
 <view class="container">
+  <!-- 简化背景光晕，去掉复杂动画 -->
   <view class="bg-glow bg-glow-1"></view>
   <view class="bg-glow bg-glow-2"></view>
 
   <view class="welcome-card glass-card">
     <view class="header-text">
+      <!-- 去掉Logo，先确保文字能显示 -->
       <view class="logo-area">
-        <image class="logo-image" src="/assets/Logo.png" mode="aspectFill"></image>
+        <text class="logo-icon">🍜</text>
       </view>
       <text class="title">未来餐厅</text>
       <text class="subtitle">扫码绑定桌台，快速开始点餐</text>

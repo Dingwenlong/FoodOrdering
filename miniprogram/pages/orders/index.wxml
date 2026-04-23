@@ -1,7 +1,6 @@
 <view class="container">
   <view class="header">
     <text class="title">我的订单</text>
-    <button class="refresh-btn" bindtap="fetchOrders" loading="{{loading}}">刷新</button>
   </view>
 
   <view class="loading-state" wx:if="{{loading}}">订单加载中...</view>

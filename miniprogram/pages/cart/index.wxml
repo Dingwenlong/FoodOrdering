@@ -2,7 +2,6 @@
   <scroll-view class="cart-list" scroll-y wx:if="{{items.length > 0}}" style="max-height: {{contentMaxHeightPx}}px;">
     <view class="list-header">
       <text class="list-title">购物车</text>
-      <button class="clear-btn" bindtap="clearCart">清空</button>
     </view>
 
     <view class="error-box" wx:if="{{errorMsg}}">{{errorMsg}}</view>

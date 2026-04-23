@@ -35,6 +35,7 @@ import com.foodordering.mapper.TableMapper;
 import com.foodordering.mapper.UserCommentMapper;
 import com.foodordering.mapper.UserFeedbackMapper;
 import com.foodordering.mapper.UserMapper;
+import com.foodordering.websocket.MenuWebSocketHandler;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -118,6 +119,7 @@ public class AdminService {
     private final AdminJwtTokenService adminJwtTokenService;
     private final AdminAuthorizationService adminAuthorizationService;
     private final PasswordEncoder passwordEncoder;
+    private final MenuWebSocketHandler menuWebSocketHandler;
 
     public AdminService(
             AdminUserAccountMapper adminUserAccountMapper,
@@ -137,7 +139,8 @@ public class AdminService {
             AdminOperationLogMapper adminOperationLogMapper,
             AdminJwtTokenService adminJwtTokenService,
             AdminAuthorizationService adminAuthorizationService,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            MenuWebSocketHandler menuWebSocketHandler
     ) {
         this.adminUserAccountMapper = adminUserAccountMapper;
         this.adminNoticeMapper = adminNoticeMapper;
@@ -157,6 +160,7 @@ public class AdminService {
         this.adminJwtTokenService = adminJwtTokenService;
         this.adminAuthorizationService = adminAuthorizationService;
         this.passwordEncoder = passwordEncoder;
+        this.menuWebSocketHandler = menuWebSocketHandler;
     }
 
     public AdminDtos.LoginResponse login(AdminDtos.LoginRequest request) {
@@ -587,6 +591,7 @@ public class AdminService {
         category.setCreateTime(LocalDateTime.now());
         category.setUpdateTime(LocalDateTime.now());
         categoryMapper.insert(category);
+        menuWebSocketHandler.broadcastMenuUpdate();
         return toCategoryView(category);
     }
 
@@ -613,6 +618,7 @@ public class AdminService {
         }
         category.setUpdateTime(LocalDateTime.now());
         categoryMapper.updateById(category);
+        menuWebSocketHandler.broadcastMenuUpdate();
         return toCategoryView(category);
     }
 
@@ -627,6 +633,7 @@ public class AdminService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "分类下存在菜品，无法删除");
         }
         categoryMapper.deleteById(id);
+        menuWebSocketHandler.broadcastMenuUpdate();
     }
 
     public AdminDtos.DishView createDish(AdminDtos.DishUpsertRequest request) {
@@ -658,6 +665,7 @@ public class AdminService {
         dish.setCreateTime(LocalDateTime.now());
         dish.setUpdateTime(LocalDateTime.now());
         dishMapper.insert(dish);
+        menuWebSocketHandler.broadcastMenuUpdate();
         return toDishView(dish);
     }
 
@@ -705,6 +713,7 @@ public class AdminService {
         }
         dish.setUpdateTime(LocalDateTime.now());
         dishMapper.updateById(dish);
+        menuWebSocketHandler.broadcastMenuUpdate();
         return toDishView(dish);
     }
 
@@ -719,6 +728,7 @@ public class AdminService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "菜品已有关联订单，无法删除");
         }
         dishMapper.deleteById(id);
+        menuWebSocketHandler.broadcastMenuUpdate();
     }
 
     public List<AdminDtos.OrderView> listOrders(String status) {
@@ -823,6 +833,8 @@ public class AdminService {
         }
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.updateById(order);
+
+        menuWebSocketHandler.broadcastOrderUpdate(orderId);
 
         return buildOrderViews(List.of(order)).stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "更新订单失败"));

@@ -31,8 +31,8 @@ function Stop-ExistingServices {
     Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force
     
     Write-Host "Stopping conflicting Docker containers..." -ForegroundColor Yellow
-    docker stop library-mysql library-redis 2>$null
-    docker rm library-mysql library-redis 2>$null
+    docker stop food_ordering_mysql food_ordering_redis food_ordering_rabbitmq 2>$null
+    docker rm food_ordering_mysql food_ordering_redis food_ordering_rabbitmq 2>$null
     
     Write-Host "Waiting for ports to be released..." -ForegroundColor Yellow
     Start-Sleep -Seconds 3
@@ -62,9 +62,9 @@ function Start-DockerServices {
     }
     
     Write-Host "[OK] Docker services started successfully" -ForegroundColor Green
-    Write-Host "  - MySQL: localhost:3306" -ForegroundColor Gray
-    Write-Host "  - Redis: localhost:6379" -ForegroundColor Gray
-    Write-Host "  - RabbitMQ: localhost:5672 (Management: localhost:15672)" -ForegroundColor Gray
+    Write-Host "  - MySQL: localhost:23306" -ForegroundColor Gray
+    Write-Host "  - Redis: localhost:26379" -ForegroundColor Gray
+    Write-Host "  - RabbitMQ: localhost:25672 (Management: localhost:25673)" -ForegroundColor Gray
 }
 
 function Start-Backend {
@@ -142,9 +142,9 @@ Start-Admin
 Write-Status "All Services Started!"
 
 Write-Host "Services running:" -ForegroundColor Green
-Write-Host "  [Docker]  MySQL      -> localhost:3306" -ForegroundColor White
-Write-Host "  [Docker]  Redis      -> localhost:6379" -ForegroundColor White
-Write-Host "  [Docker]  RabbitMQ   -> localhost:5672 (Management: localhost:15672)" -ForegroundColor White
+Write-Host "  [Docker]  MySQL      -> localhost:23306" -ForegroundColor White
+Write-Host "  [Docker]  Redis      -> localhost:26379" -ForegroundColor White
+Write-Host "  [Docker]  RabbitMQ   -> localhost:25672 (Management: localhost:25673)" -ForegroundColor White
 Write-Host "  [Backend] Spring Boot -> http://localhost:$BackendPort" -ForegroundColor White
 Write-Host "  [Frontend] Vue Admin  -> http://localhost:$AdminPort" -ForegroundColor White
 

@@ -30,7 +30,9 @@ Page({
       this.setData({ errorMsg: '缺少订单ID，请返回购物车重新下单' });
       return;
     }
+    (this as any).currentOrderId = orderId;
     this.fetchOrder(orderId);
+    this.initWebSocket();
   },
 
   onReady() {
@@ -41,6 +43,67 @@ Page({
     const orderId = this.data.order?.id;
     if (orderId) {
       this.fetchOrder(orderId);
+    }
+  },
+
+  onUnload() {
+    this.closeWebSocket();
+  },
+
+  initWebSocket() {
+    try {
+      const BASE_URL = (wx.getStorageSync('MP_API_BASE_URL') as string) || 'http://localhost:8080';
+      const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/ws/menu';
+      console.log('连接 WebSocket (订单详情):', wsUrl);
+
+      const socketTask = wx.connectSocket({
+        url: wsUrl,
+        protocols: [],
+      });
+
+      (this as any).wsSocketTask = socketTask;
+
+      socketTask.onOpen(() => {
+        console.log('WebSocket 连接已打开 (订单详情)');
+      });
+
+      socketTask.onMessage((res) => {
+        console.log('收到 WebSocket 消息 (订单详情):', res.data);
+        try {
+          const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+          if (data.type === 'order_updated' && data.orderId === (this as any).currentOrderId) {
+            console.log('订单已更新，正在刷新...');
+            if ((this as any).currentOrderId) {
+              this.fetchOrder((this as any).currentOrderId);
+            }
+          }
+        } catch (e) {
+          console.error('解析 WebSocket 消息失败:', e);
+        }
+      });
+
+      socketTask.onError((err) => {
+        console.error('WebSocket 连接错误 (订单详情):', err);
+      });
+
+      socketTask.onClose(() => {
+        console.log('WebSocket 连接已关闭 (订单详情)，5秒后重连...');
+        setTimeout(() => this.initWebSocket(), 5000);
+      });
+    } catch (e) {
+      console.error('初始化 WebSocket 失败 (订单详情):', e);
+    }
+  },
+
+  closeWebSocket() {
+    const socketTask = (this as any).wsSocketTask;
+    if (socketTask) {
+      try {
+        socketTask.close();
+      } catch (e) {
+        console.error('关闭 WebSocket 失败 (订单详情):', e);
+      }
+      (this as any).wsSocketTask = null;
     }
   },
 
@@ -229,12 +292,6 @@ Page({
     } finally {
       this.setData({ cancelLoading: false });
     }
-  },
-
-  async refreshOrder() {
-    const orderId = this.data.order?.id;
-    if (!orderId) return;
-    await this.fetchOrder(orderId);
   },
 
   async loadReviewState(orderId: string) {

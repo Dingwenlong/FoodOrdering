@@ -1,77 +1,57 @@
 <view class="container">
+  <!-- 背景光晕 -->
   <view class="bg-glow bg-glow-1"></view>
   <view class="bg-glow bg-glow-2"></view>
 
-  <view class="header">
-    <view class="store-info">
-      <text class="store-name">{{storeName}}</text>
-      <text class="table-info" wx:if="{{tableName}}">{{tableName}} 桌</text>
-    </view>
-    <button class="cs-btn glass-card" bindtap="goSupport">
-      <text class="cs-icon">客服</text>
-    </button>
-  </view>
-
-  <view class="notice-section glass-card" wx:if="{{notices.length > 0}}">
-    <view class="section-title">
-      <text class="title-text">餐厅公告</text>
-    </view>
-    <swiper class="notice-swiper" vertical autoplay circular interval="3000">
-      <swiper-item wx:for="{{notices}}" wx:key="id">
-        <view class="notice-item">
-          <text class="notice-tag">NEW</text>
-          <text class="notice-content">{{item.content}}</text>
-        </view>
-      </swiper-item>
-    </swiper>
-  </view>
-
-  <view class="dish-section glass-card">
-    <view class="section-header">
-      <text class="section-title">菜品列表</text>
-      <text class="more-link" bindtap="goMenu">进入菜单 →</text>
-    </view>
-    <view class="dish-list">
-      <view class="dish-item" wx:for="{{dishes}}" wx:key="id" bindtap="goMenu">
-        <image class="dish-image" src="{{item.image}}" mode="aspectFill"></image>
-        <view class="dish-meta">
-          <view class="dish-top">
-            <text class="dish-name">{{item.name}}</text>
-            <text class="dish-soldout" wx:if="{{item.soldOut}}">售罄</text>
-          </view>
-          <text class="dish-desc">{{item.description || '暂无描述'}}</text>
-          <text class="dish-price">¥{{item.priceFen / 100}}</text>
+  <!-- 主内容区域 -->
+  <view class="main-area safe-area" wx:if="{{!loading}}">
+    <!-- 欢迎区域 -->
+    <view class="welcome-section glass-card">
+      <view class="welcome-header">
+        <text class="emoji">👋</text>
+        <view class="welcome-text">
+          <text class="title">欢迎光临</text>
+          <text class="subtitle" wx:if="{{tableName}}">{{tableName}}</text>
+          <text class="subtitle" wx:else>请先扫码绑定桌号</text>
         </view>
       </view>
-    </view>
-  </view>
 
-  <view class="comment-section glass-card">
-    <view class="section-header">
-      <text class="section-title">顾客评价</text>
+      <!-- 开始点餐按钮 -->
+      <button class="order-btn neon-btn" hover-class="btn-hover" bindtap="{{tableName ? 'goMenu' : 'goScan'}}">
+        {{tableName ? '开始点餐' : '去绑定桌号'}}
+      </button>
     </view>
-    <view class="comment-list">
-      <view class="comment-item" wx:for="{{comments}}" wx:key="id">
-        <view class="comment-header">
-          <text class="user-name">{{item.userName}}</text>
-          <view class="rating">
-            <text class="star" wx:for="{{[1,2,3,4,5]}}" wx:key="*this" wx:for-item="star">{{item.rating >= star ? '⭐' : '☆'}}</text>
+
+    <!-- 错误信息 -->
+    <view class="error-box" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+
+    <!-- 顾客评价 -->
+    <view class="comments-section" wx:if="{{comments.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">顾客评价</text>
+      </view>
+
+      <scroll-view class="comments-scroll" scroll-x show-scrollbar="{{false}}">
+        <view class="comment-list">
+          <view class="comment-card glass-card" wx:for="{{comments}}" wx:key="id">
+            <view class="comment-user">
+              <text class="user-name">{{item.userName}}</text>
+              <view class="rating">
+                <text class="star" wx:for="{{5}}" wx:for-item="s" wx:for-index="si" wx:key="si">
+                  {{si < item.rating ? '⭐' : '☆'}}
+                </text>
+              </view>
+            </view>
+            <text class="comment-text">{{item.content}}</text>
+            <text class="comment-date">{{item.createdAt}}</text>
           </view>
         </view>
-        <text class="comment-content">{{item.content}}</text>
-        <text class="comment-date">{{item.createdAt}}</text>
-      </view>
-    </view>
-    <view class="empty-comment" wx:if="{{comments.length === 0}}">
-      暂无评价
+      </scroll-view>
     </view>
   </view>
 
-  <view class="footer">
-    <view class="footer-actions">
-      <button class="ghost-btn" bindtap="goOrders">我的订单</button>
-      <button class="ghost-btn" bindtap="goSupport">售后</button>
-      <button class="order-btn neon-btn" bindtap="goMenu">立即点餐</button>
-    </view>
+  <!-- 加载中 -->
+  <view class="loading-area" wx:if="{{loading}}">
+    <text class="loading-text">加载中...</text>
   </view>
 </view>

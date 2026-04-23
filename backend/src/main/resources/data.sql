@@ -69,13 +69,13 @@ INSERT INTO payments (id, order_id, payment_no, amount, payment_method, status, 
 
 -- 初始化公告
 INSERT INTO notices (id, title, content, is_pinned, create_time, update_time) VALUES
-(1, '新品上线：香辣鸡腿堡', '本周上新，欢迎品尝。', 1, '2026-03-01 16:00:00', '2026-03-01 16:00:00'),
-(2, '营业时间调整', '周末延长营业至 23:00。', 0, '2026-02-25 14:00:00', '2026-02-25 14:00:00');
+(1, '今日特惠', '宫保鸡丁 8 折优惠，欢迎品尝！', 1, '2026-04-20 16:00:00', '2026-04-20 16:00:00'),
+(2, '营业时间调整', '由于设备维护，明天营业时间调整为 10:00 - 20:00', 0, '2026-04-19 14:00:00', '2026-04-19 14:00:00');
 
 -- 初始化评论
 INSERT INTO comments (id, order_id, dish_name, nickname, rating, content, create_time) VALUES
-(1, 10003, '可乐', 'xiaoli', 5, '口感清爽，点赞。', '2026-03-01 13:00:00'),
-(2, 10001, '宫保鸡丁', 'xiaozhang', 4, '味道不错，分量再多一点更好。', '2026-03-01 16:10:00');
+(1, 10001, '宫保鸡丁', '张三', 5, '味道不错，推荐！', '2026-04-20 13:00:00'),
+(2, 10002, '麻婆豆腐', '李四', 4, '豆腐稍微有点咸，整体还可以。', '2026-04-19 16:10:00');
 
 -- 初始化留言建议
 INSERT INTO feedbacks (id, nickname, content, status, create_time, update_time) VALUES

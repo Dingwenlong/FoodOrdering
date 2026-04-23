@@ -215,21 +215,7 @@ Page({
     wx.setStorageSync(STORAGE_KEYS.cart, cartMap);
   },
 
-  clearCart() {
-    wx.showModal({
-      title: '清空购物车',
-      content: '确认清空当前已选菜品吗？',
-      success: (res) => {
-        if (!res.confirm) return;
-        wx.removeStorageSync(STORAGE_KEYS.cart);
-        this.setData({
-          items: [],
-          totalPrice: 0,
-          payablePrice: 0,
-        });
-      },
-    });
-  },
+
 
   handleRemarkInput(e: WechatMiniprogram.BaseEvent) {
     const value = String((e as any).detail?.value || '').slice(0, this.data.remarkLimit);

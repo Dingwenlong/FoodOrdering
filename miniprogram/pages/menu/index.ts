@@ -60,11 +60,79 @@ Page({
     (this as any).scrollLockUntil = 0;
     (this as any).sectionMeasureTimer = null;
     (this as any).specDraftMap = {};
+    (this as any).wsSocketTask = null;
 
     this.resolveSession(options);
     this.restoreCart();
     if (this.data.storeId) {
       this.fetchMenu(this.data.storeId);
+    }
+    this.initWebSocket();
+  },
+
+  onUnload() {
+    const timer = (this as any).sectionMeasureTimer;
+    if (timer) {
+      clearTimeout(timer);
+      (this as any).sectionMeasureTimer = null;
+    }
+    this.closeWebSocket();
+  },
+
+  initWebSocket() {
+    try {
+      const BASE_URL = (wx.getStorageSync('MP_API_BASE_URL') as string) || 'http://localhost:8080';
+      const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/ws/menu';
+      console.log('连接 WebSocket:', wsUrl);
+      
+      const socketTask = wx.connectSocket({
+        url: wsUrl,
+        protocols: [],
+      });
+
+      (this as any).wsSocketTask = socketTask;
+
+      socketTask.onOpen(() => {
+        console.log('WebSocket 连接已打开');
+      });
+
+      socketTask.onMessage((res) => {
+        console.log('收到 WebSocket 消息:', res.data);
+        try {
+          const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+          if (data.type === 'menu_updated') {
+            console.log('菜单已更新，正在刷新...');
+            if (this.data.storeId) {
+              this.fetchMenu(this.data.storeId);
+            }
+          }
+        } catch (e) {
+          console.error('解析 WebSocket 消息失败:', e);
+        }
+      });
+
+      socketTask.onError((err) => {
+        console.error('WebSocket 连接错误:', err);
+      });
+
+      socketTask.onClose(() => {
+        console.log('WebSocket 连接已关闭，5秒后重连...');
+        setTimeout(() => this.initWebSocket(), 5000);
+      });
+    } catch (e) {
+      console.error('初始化 WebSocket 失败:', e);
+    }
+  },
+
+  closeWebSocket() {
+    const socketTask = (this as any).wsSocketTask;
+    if (socketTask) {
+      try {
+        socketTask.close();
+      } catch (e) {
+        console.error('关闭 WebSocket 失败:', e);
+      }
+      (this as any).wsSocketTask = null;
     }
   },
 
@@ -80,14 +148,6 @@ Page({
       return;
     }
     this.fetchMenu(this.data.storeId).finally(() => wx.stopPullDownRefresh());
-  },
-
-  onUnload() {
-    const timer = (this as any).sectionMeasureTimer;
-    if (timer) {
-      clearTimeout(timer);
-      (this as any).sectionMeasureTimer = null;
-    }
   },
 
   resolveSession(options: Record<string, string>) {
@@ -131,7 +191,7 @@ Page({
       const payload = res.data;
       const categories = (payload.categories || []).map((category) => ({
         ...category,
-        dishes: (category.dishes || []).slice().sort((a, b) => Number(a.id) - Number(b.id)),
+        dishes: (category.dishes || []).slice(),
       }));
 
       const viewCategories = this.buildViewCategories(categories, this.data.keyword);
