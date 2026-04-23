@@ -18,6 +18,8 @@ import FeedbackPage from "@/pages/FeedbackPage.vue";
 import SupportPage from "@/pages/SupportPage.vue";
 import SystemPage from "@/pages/SystemPage.vue";
 import ProfilePage from "@/pages/ProfilePage.vue";
+import AdminsPage from "@/pages/AdminsPage.vue";
+import AuditLogsPage from "@/pages/AuditLogsPage.vue";
 import NotFoundPage from "@/pages/NotFoundPage.vue";
 
 const routes: RouteRecordRaw[] = [
@@ -67,7 +69,7 @@ const routes: RouteRecordRaw[] = [
         path: "stats",
         name: "stats",
         component: StatsPage,
-        meta: { title: "数据统计", requiresAuth: true },
+        meta: { title: "数据统计", requiresAuth: true, permission: "STATS_VIEW" },
       },
       {
         path: "comments",
@@ -91,7 +93,19 @@ const routes: RouteRecordRaw[] = [
         path: "settings",
         name: "settings",
         component: SystemPage,
-        meta: { title: "系统设置", requiresAuth: true },
+        meta: { title: "系统设置", requiresAuth: true, permission: "SETTINGS_MANAGE" },
+      },
+      {
+        path: "admins",
+        name: "admins",
+        component: AdminsPage,
+        meta: { title: "管理员", requiresAuth: true, permission: "ADMIN_USER_MANAGE" },
+      },
+      {
+        path: "audit-logs",
+        name: "audit-logs",
+        component: AuditLogsPage,
+        meta: { title: "操作日志", requiresAuth: true, permission: "AUDIT_LOG_VIEW" },
       },
       { path: "system", redirect: "/settings" },
       {
@@ -138,6 +152,8 @@ router.beforeEach(async to => {
     if (!auth.isAuthed) return { path: "/login", replace: true };
     try {
       await auth.ensureProfile();
+      const permission = typeof to.meta.permission === "string" ? to.meta.permission : undefined;
+      if (permission && !auth.hasPermission(permission)) return { path: "/orders", replace: true };
     } catch {
       auth.logout();
       return { path: "/login", replace: true };

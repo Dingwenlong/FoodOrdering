@@ -1,4 +1,4 @@
-import { request, STORAGE_KEYS } from '../../utils/request';
+import { request, shouldUseMock, STORAGE_KEYS } from '../../utils/request';
 import type { Order, PrepayPayload, PrepayResult, UrgeOrderResult } from '../../types/index';
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -139,25 +139,44 @@ Page({
     this.setData({ paying: true, errorMsg: '' });
     try {
       const payload: PrepayPayload = { orderId: this.data.order.id };
-      await request<PrepayResult>({
+      const prepayRes = await request<PrepayResult>({
         url: '/pay/wechat/prepay',
         method: 'POST',
         data: payload,
       });
 
-      wx.showLoading({ title: '支付处理中...' });
-      await wait(900);
+      if (shouldUseMock()) {
+        wx.showLoading({ title: '支付处理中...' });
+        await wait(900);
 
-      const confirmRes = await request<Order>({
-        url: '/pay/wechat/confirm',
-        method: 'POST',
-        data: payload,
+        const confirmRes = await request<Order>({
+          url: '/pay/wechat/confirm',
+          method: 'POST',
+          data: payload,
+        });
+        wx.hideLoading();
+
+        this.setData({ order: confirmRes.data });
+        this.updateStatusUI(confirmRes.data.status);
+        wx.showToast({ title: '支付成功', icon: 'success' });
+        return;
+      }
+
+      const payParams = prepayRes.data;
+      await new Promise<void>((resolve, reject) => {
+        wx.requestPayment({
+          timeStamp: payParams.timeStamp,
+          nonceStr: payParams.nonceStr,
+          package: payParams.package || payParams.prepayPackage,
+          signType: payParams.signType as 'MD5' | 'HMAC-SHA256' | 'RSA',
+          paySign: payParams.paySign,
+          success: () => resolve(),
+          fail: (payErr) => reject(new Error(payErr.errMsg || '支付失败')),
+        });
       });
-      wx.hideLoading();
 
-      this.setData({ order: confirmRes.data });
-      this.updateStatusUI(confirmRes.data.status);
-      wx.showToast({ title: '支付成功', icon: 'success' });
+      wx.showToast({ title: '支付已提交', icon: 'success' });
+      await this.fetchOrder(this.data.order.id);
     } catch (err) {
       wx.hideLoading();
       const msg = err instanceof Error ? err.message : '支付失败';

@@ -1,471 +1,194 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import type { Table, TableStatus } from '@/types'
+import { computed, onMounted, reactive, ref } from 'vue'
+import QRCode from 'qrcode'
+import PageHeader from '@/components/PageHeader.vue'
+import StatusPill from '@/components/StatusPill.vue'
 import { api } from '@/lib/api'
-import Card from '../components/Card.vue'
-import GlassModal from '../components/GlassModal.vue'
-import { Search, Plus, Edit2, Trash2, Filter, QrCode } from 'lucide-vue-next'
+import type { PageResult, Table, TableStatus } from '@/types'
 
 const loading = ref(false)
 const saving = ref(false)
-const deletingId = ref<string | null>(null)
-const errorMsg = ref<string | null>(null)
-
-const tables = ref<Table[]>([])
-const total = ref(0)
+const error = ref('')
 const page = ref(1)
 const pageSize = ref(10)
+const result = ref<PageResult<Table>>({ list: [], total: 0, page: 1, pageSize: 10 })
+const filters = reactive<{ keyword: string; status: '' | TableStatus; area: string }>({ keyword: '', status: '', area: '' })
+const editing = ref<Table | null>(null)
+const form = reactive({ tableNo: '', capacity: 4, location: '', area: '' })
 
-const keyword = ref('')
-const statusFilter = ref<TableStatus | ''>('')
-
-const showModal = ref(false)
-const isEdit = ref(false)
-const form = ref({
-  tableId: '',
-  tableNo: '',
-  capacity: 4,
-  location: '',
-  area: '',
-})
-
-const statusOptions = [
-  { value: '', label: '全部状态' },
-  { value: 'IDLE', label: '空闲' },
-  { value: 'OCCUPIED', label: '占用' },
-  { value: 'RESERVED', label: '预订' },
-  { value: 'MAINTENANCE', label: '维护中' },
+const totalPages = computed(() => Math.max(1, Math.ceil(result.value.total / pageSize.value)))
+const areas = computed(() => Array.from(new Set(result.value.list.map((t) => t.area).filter(Boolean))) as string[])
+const statuses: Array<{ label: string; value: '' | TableStatus }> = [
+  { label: '全部状态', value: '' },
+  { label: '空闲', value: 'IDLE' },
+  { label: '占用', value: 'OCCUPIED' },
+  { label: '预订', value: 'RESERVED' },
+  { label: '维护', value: 'MAINTENANCE' },
 ]
 
-const filteredTables = computed(() => {
-  let result = tables.value
-  
-  // 关键词筛选
-  const q = keyword.value.trim().toLowerCase()
-  if (q) {
-    result = result.filter(t => 
-      t.tableNo.toLowerCase().includes(q) || 
-      (t.location && t.location.toLowerCase().includes(q))
-    )
-  }
-  
-  // 状态筛选
-  if (statusFilter.value) {
-    result = result.filter(t => t.status === statusFilter.value)
-  }
-  
-  return result
-})
-
-const pagedTables = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredTables.value.slice(start, end)
-})
-
-const totalPages = computed(() => Math.ceil(filteredTables.value.length / pageSize.value))
-
-function getStatusLabel(status: TableStatus): string {
-  const map: Record<TableStatus, string> = {
-    IDLE: '空闲',
-    OCCUPIED: '占用',
-    RESERVED: '预订',
-    MAINTENANCE: '维护中',
-  }
-  return map[status] || status
-}
-
-function getStatusClass(status: TableStatus): string {
-  const map: Record<TableStatus, string> = {
-    IDLE: 'bg-green-500/20 text-green-200 border-green-500/30',
-    OCCUPIED: 'bg-red-500/20 text-red-200 border-red-500/30',
-    RESERVED: 'bg-yellow-500/20 text-yellow-200 border-yellow-500/30',
-    MAINTENANCE: 'bg-gray-500/20 text-gray-200 border-gray-500/30',
-  }
-  return map[status] || ''
-}
-
-function resetForm() {
-  form.value = {
-    tableId: '',
-    tableNo: '',
-    capacity: 4,
-    location: '',
-    area: '',
-  }
-}
-
-async function loadData() {
+async function loadTables(resetPage = false) {
+  if (resetPage) page.value = 1
   loading.value = true
-  errorMsg.value = null
+  error.value = ''
   try {
-    const result = await api.listTablesPaged({
-      page: 1,
-      pageSize: 1000,
+    result.value = await api.listTablesPaged({
+      page: page.value,
+      pageSize: pageSize.value,
+      keyword: filters.keyword || undefined,
+      status: filters.status || undefined,
+      area: filters.area || undefined,
     })
-    tables.value = result.list
-    total.value = result.total
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : '加载桌码失败'
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '桌台加载失败'
   } finally {
     loading.value = false
   }
 }
 
-function handleSearch() {
-  page.value = 1
+function startCreate() {
+  editing.value = null
+  Object.assign(form, { tableNo: '', capacity: 4, location: '', area: '' })
 }
 
-function handleReset() {
-  keyword.value = ''
-  statusFilter.value = ''
-  page.value = 1
-}
-
-function openAdd() {
-  isEdit.value = false
-  resetForm()
-  showModal.value = true
-}
-
-function openEdit(table: Table) {
-  isEdit.value = true
-  form.value = {
-    tableId: table.id,
+function startEdit(table: Table) {
+  editing.value = table
+  Object.assign(form, {
     tableNo: table.tableNo,
     capacity: table.capacity,
-    location: table.location || '',
-    area: table.area || '',
-  }
-  showModal.value = true
+    location: table.location ?? '',
+    area: table.area ?? '',
+  })
 }
 
 async function saveTable() {
-  if (!form.value.tableNo.trim()) {
-    errorMsg.value = '桌台编号不能为空'
+  if (!form.tableNo.trim() || form.capacity <= 0) {
+    error.value = '桌台编号不能为空，容纳人数必须大于 0'
     return
   }
-  if (!Number.isFinite(form.value.capacity) || form.value.capacity <= 0) {
-    errorMsg.value = '容纳人数必须大于0'
-    return
-  }
-
   saving.value = true
-  errorMsg.value = null
+  error.value = ''
   try {
-    const payload = {
-      tableNo: form.value.tableNo.trim(),
-      capacity: Number(form.value.capacity),
-      location: form.value.location.trim() || undefined,
-      area: form.value.area.trim() || undefined,
-    }
-    if (isEdit.value) {
-      await api.updateTable({ tableId: form.value.tableId, ...payload })
+    if (editing.value) {
+      await api.updateTable({ tableId: editing.value.id, ...form })
     } else {
-      await api.createTable(payload)
+      await api.createTable({ ...form })
     }
-    showModal.value = false
-    resetForm()
-    await loadData()
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : '保存桌码失败'
+    startCreate()
+    await loadTables()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '桌台保存失败'
   } finally {
     saving.value = false
   }
 }
 
-async function handleDelete(tableId: string) {
-  if (!window.confirm('确认删除该桌台？')) return
-  deletingId.value = tableId
-  errorMsg.value = null
-  try {
-    await api.deleteTable(tableId)
-    await loadData()
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : '删除桌台失败'
-  } finally {
-    deletingId.value = null
+async function changeStatus(table: Table, status: TableStatus) {
+  await api.updateTableStatus({ tableId: table.id, status })
+  await loadTables()
+}
+
+async function deleteTable(table: Table) {
+  if (!window.confirm(`确认删除 ${table.tableNo}？`)) return
+  await api.deleteTable(table.id)
+  await loadTables()
+}
+
+async function downloadQr(table: Table) {
+  const qr = await api.getTableQrPayload(table.id)
+  const dataUrl = await QRCode.toDataURL(qr.payload, { width: 320, margin: 2 })
+  const link = document.createElement('a')
+  link.href = dataUrl
+  link.download = `${qr.tableNo}-桌码.png`
+  link.click()
+}
+
+function changePage(delta: number) {
+  const next = Math.min(totalPages.value, Math.max(1, page.value + delta))
+  if (next !== page.value) {
+    page.value = next
+    void loadTables()
   }
 }
 
-async function handleStatusChange(table: Table, newStatus: TableStatus) {
-  try {
-    await api.updateTableStatus({ tableId: table.id, status: newStatus })
-    await loadData()
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : '状态更新失败'
-  }
-}
-
-function handleDownloadQR(table: Table) {
-  errorMsg.value = `桌台 ${table.tableNo} 的二维码下载功能开发中`
-}
-
-function goToPage(p: number) {
-  if (p < 1 || p > totalPages.value) return
-  page.value = p
-}
-
-onMounted(loadData)
+onMounted(loadTables)
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-      <h1 class="text-2xl font-bold text-white tracking-tight">
-        桌台管理
-      </h1>
-      <div class="flex gap-3">
-        <button
-          class="glass-btn-secondary flex items-center gap-2"
-          :disabled="loading"
-          @click="loadData"
-        >
-          <Filter class="w-4 h-4" /> 刷新
-        </button>
-        <button
-          class="glass-btn flex items-center gap-2"
-          @click="openAdd"
-        >
-          <Plus class="w-5 h-5" /> 新增桌台
-        </button>
+    <PageHeader title="桌台管理" description="维护桌台区域、状态和小程序扫码桌码。" />
+
+    <section class="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <div class="grid gap-3 md:grid-cols-[1.3fr_150px_150px_auto]">
+        <input v-model="filters.keyword" class="input" placeholder="搜索桌号、位置" @keyup.enter="loadTables(true)">
+        <select v-model="filters.status" class="input">
+          <option v-for="item in statuses" :key="item.value" :value="item.value">{{ item.label }}</option>
+        </select>
+        <input v-model="filters.area" class="input" list="area-options" placeholder="区域">
+        <datalist id="area-options">
+          <option v-for="area in areas" :key="area" :value="area" />
+        </datalist>
+        <button class="btn-primary" @click="loadTables(true)">筛选</button>
       </div>
-    </div>
+      <p v-if="error" class="mt-3 text-sm text-rose-300">{{ error }}</p>
+    </section>
 
-    <div
-      v-if="errorMsg"
-      class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
-    >
-      {{ errorMsg }}
-    </div>
-
-    <!-- Search -->
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="relative max-w-md">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 w-5 h-5" />
-        <input 
-          v-model.trim="keyword"
-          type="text" 
-          placeholder="搜索桌台编号..." 
-          class="glass-input pl-10"
-          @keyup.enter="handleSearch"
-        >
-      </div>
-      <select
-        v-model="statusFilter"
-        class="glass-select w-[140px]"
-        @change="handleSearch"
-      >
-        <option
-          v-for="opt in statusOptions"
-          :key="opt.value"
-          :value="opt.value"
-        >
-          {{ opt.label }}
-        </option>
-      </select>
-      <button
-        class="glass-btn-secondary text-sm"
-        @click="handleReset"
-      >
-        重置
-      </button>
-    </div>
-
-    <!-- Table -->
-    <Card
-      no-padding
-      class="overflow-hidden"
-    >
-      <div class="overflow-x-auto">
-        <table class="glass-table">
-          <thead>
+    <section class="grid gap-4 xl:grid-cols-[1fr_360px]">
+      <div class="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60">
+        <table class="w-full text-sm">
+          <thead class="bg-white/[0.04] text-left text-white/50">
             <tr>
-              <th>桌台编号</th>
-              <th>容纳人数</th>
-              <th>状态</th>
-              <th>位置</th>
-              <th>创建时间</th>
-              <th class="text-right">
-                操作
-              </th>
+              <th class="px-4 py-3">桌台</th>
+              <th class="px-4 py-3">区域</th>
+              <th class="px-4 py-3">人数</th>
+              <th class="px-4 py-3">状态</th>
+              <th class="px-4 py-3 text-right">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading">
-              <td
-                colspan="6"
-                class="py-8 text-center text-white/40"
-              >
-                加载中...
+            <tr v-for="table in result.list" :key="table.id" class="border-t border-white/5 hover:bg-white/[0.03]">
+              <td class="px-4 py-3">
+                <div class="font-medium">{{ table.tableNo }}</div>
+                <div class="text-xs text-white/40">{{ table.location || '-' }}</div>
               </td>
-            </tr>
-            <tr v-else-if="pagedTables.length === 0">
-              <td
-                colspan="6"
-                class="py-8 text-center text-white/40"
-              >
-                暂无桌台
-              </td>
-            </tr>
-            <tr
-              v-for="table in pagedTables"
-              :key="table.id"
-              class="group"
-            >
-              <td class="font-bold text-white">
-                {{ table.tableNo }}
-              </td>
-              <td class="text-white/70">
-                {{ table.capacity }} 人
-              </td>
-              <td>
-                <select
-                  :value="table.status"
-                  class="glass-select text-xs py-1 px-2"
-                  @change="handleStatusChange(table, ($event.target as HTMLSelectElement).value as TableStatus)"
-                >
-                  <option
-                    v-for="opt in statusOptions.filter(o => o.value)"
-                    :key="opt.value"
-                    :value="opt.value"
-                  >
-                    {{ opt.label }}
-                  </option>
-                </select>
-              </td>
-              <td class="text-white/70">
-                {{ table.location || '-' }}
-              </td>
-              <td class="text-white/50 text-xs">
-                {{ new Date(table.createdAt).toLocaleString() }}
-              </td>
-              <td class="text-right space-x-2">
-                <button
-                  class="p-2 hover:bg-white/10 rounded-lg text-purple-400 transition-colors"
-                  title="下载二维码"
-                  @click="handleDownloadQR(table)"
-                >
-                  <QrCode class="w-4 h-4" />
-                </button>
-                <button
-                  class="p-2 hover:bg-white/10 rounded-lg text-cyan-400 transition-colors"
-                  title="编辑"
-                  @click="openEdit(table)"
-                >
-                  <Edit2 class="w-4 h-4" />
-                </button>
-                <button
-                  class="p-2 hover:bg-white/10 rounded-lg text-red-400 transition-colors disabled:opacity-40"
-                  title="删除"
-                  :disabled="deletingId === table.id"
-                  @click="handleDelete(table.id)"
-                >
-                  <Trash2 class="w-4 h-4" />
-                </button>
+              <td class="px-4 py-3">{{ table.area || '-' }}</td>
+              <td class="px-4 py-3">{{ table.capacity }}</td>
+              <td class="px-4 py-3"><StatusPill :status="table.status" /></td>
+              <td class="px-4 py-3 text-right">
+                <button class="btn-ghost mr-2" @click="downloadQr(table)">二维码</button>
+                <button class="btn-ghost mr-2" @click="startEdit(table)">编辑</button>
+                <button class="btn-ghost" @click="deleteTable(table)">删除</button>
               </td>
             </tr>
           </tbody>
         </table>
+        <div class="flex items-center justify-between border-t border-white/10 px-4 py-3 text-sm text-white/50">
+          <span>共 {{ result.total }} 条，第 {{ page }} / {{ totalPages }} 页</span>
+          <div class="flex gap-2">
+            <button class="btn-ghost" :disabled="page <= 1" @click="changePage(-1)">上一页</button>
+            <button class="btn-ghost" :disabled="page >= totalPages" @click="changePage(1)">下一页</button>
+          </div>
+        </div>
       </div>
 
-      <!-- Pagination -->
-      <div
-        v-if="totalPages > 1"
-        class="border-t border-white/10 px-4 py-3 flex items-center justify-between"
-      >
-        <div class="text-sm text-white/50">
-          共 {{ filteredTables.length }} 条，第 {{ page }} / {{ totalPages }} 页
+      <aside class="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-semibold">{{ editing ? '编辑桌台' : '新增桌台' }}</h2>
+          <button class="btn-ghost" @click="startCreate">清空</button>
         </div>
-        <div class="flex items-center gap-1">
-          <button
-            class="glass-btn-secondary text-sm py-1 px-2"
-            :disabled="page <= 1"
-            @click="goToPage(page - 1)"
-          >
-            上一页
-          </button>
-          <button
-            v-for="p in totalPages"
-            :key="p"
-            class="text-sm py-1 px-3 rounded transition-colors"
-            :class="p === page ? 'bg-cyan-500/30 text-cyan-300' : 'text-white/60 hover:bg-white/10'"
-            @click="goToPage(p)"
-          >
-            {{ p }}
-          </button>
-          <button
-            class="glass-btn-secondary text-sm py-1 px-2"
-            :disabled="page >= totalPages"
-            @click="goToPage(page + 1)"
-          >
-            下一页
-          </button>
+        <form class="space-y-4" @submit.prevent="saveTable">
+          <input v-model.trim="form.tableNo" class="input" placeholder="桌台编号，如 A01">
+          <input v-model.number="form.capacity" class="input" type="number" min="1" placeholder="容纳人数">
+          <input v-model.trim="form.area" class="input" placeholder="区域，如 一楼大厅">
+          <input v-model.trim="form.location" class="input" placeholder="位置描述">
+          <button class="btn-primary w-full" :disabled="saving" type="submit">{{ saving ? '保存中...' : '保存' }}</button>
+        </form>
+        <div v-if="editing" class="mt-5 grid grid-cols-2 gap-2">
+          <button class="btn-ghost" @click="changeStatus(editing, 'IDLE')">设为空闲</button>
+          <button class="btn-ghost" @click="changeStatus(editing, 'OCCUPIED')">设为占用</button>
+          <button class="btn-ghost" @click="changeStatus(editing, 'RESERVED')">设为预订</button>
+          <button class="btn-ghost" @click="changeStatus(editing, 'MAINTENANCE')">设为维护</button>
         </div>
-      </div>
-    </Card>
-
-    <!-- Edit Modal -->
-    <GlassModal
-      v-model="showModal"
-      :title="isEdit ? '编辑桌台' : '新增桌台'"
-    >
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-white/60 mb-1">桌台编号</label>
-          <input
-            v-model="form.tableNo"
-            type="text"
-            class="glass-input"
-            placeholder="如：A01"
-          >
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-white/60 mb-1">容纳人数</label>
-          <input
-            v-model.number="form.capacity"
-            type="number"
-            min="1"
-            class="glass-input"
-            placeholder="请输入容纳人数"
-          >
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-white/60 mb-1">位置描述</label>
-          <input
-            v-model="form.location"
-            type="text"
-            class="glass-input"
-            placeholder="如：一楼大厅"
-          >
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-white/60 mb-1">所属区域</label>
-          <input
-            v-model="form.area"
-            type="text"
-            class="glass-input"
-            placeholder="如：大厅/包间"
-          >
-        </div>
-      </div>
-      <template #footer>
-        <button
-          class="glass-btn-secondary"
-          :disabled="saving"
-          @click="showModal = false"
-        >
-          取消
-        </button>
-        <button
-          class="glass-btn"
-          :disabled="saving"
-          @click="saveTable"
-        >
-          {{ saving ? '保存中...' : '保存' }}
-        </button>
-      </template>
-    </GlassModal>
+      </aside>
+    </section>
   </div>
 </template>

@@ -15,6 +15,7 @@ public class Table {
     private Integer capacity;
     private Integer status;
     private String location;
+    private String area;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 
@@ -28,6 +29,8 @@ public class Table {
     public void setStatus(Integer status) { this.status = status; }
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
+    public String getArea() { return area; }
+    public void setArea(String area) { this.area = area; }
     public LocalDateTime getCreateTime() { return createTime; }
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
     public LocalDateTime getUpdateTime() { return updateTime; }

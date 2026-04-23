@@ -1,0 +1,129 @@
+.container {
+  min-height: 100vh;
+  padding: 28rpx 28rpx 170rpx;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.header {
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  margin-bottom: 20rpx;
+}
+
+.topic {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 900;
+}
+
+.meta,
+.sender {
+  display: block;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 22rpx;
+  margin-top: 8rpx;
+}
+
+.refresh-btn {
+  width: 132rpx;
+  height: 62rpx;
+  line-height: 62rpx;
+  border-radius: 18rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 24rpx;
+}
+
+.message-list {
+  max-height: calc(100vh - 280rpx);
+}
+
+.message {
+  display: flex;
+  margin-bottom: 18rpx;
+}
+
+.message-user {
+  justify-content: flex-end;
+}
+
+.message-admin {
+  justify-content: flex-start;
+}
+
+.bubble {
+  max-width: 78%;
+  border-radius: 20rpx;
+  padding: 18rpx 20rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+}
+
+.message-user .bubble {
+  background: rgba(34, 211, 238, 0.16);
+  border-color: rgba(34, 211, 238, 0.36);
+}
+
+.message-admin .bubble {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.content {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 27rpx;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.composer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 28rpx calc(20rpx + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 16rpx;
+  background: rgba(8, 13, 26, 0.92);
+  border-top: 1rpx solid rgba(255, 255, 255, 0.12);
+}
+
+.input {
+  flex: 1;
+  height: 86rpx;
+  box-sizing: border-box;
+  padding: 18rpx 20rpx;
+  border-radius: 18rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 26rpx;
+}
+
+.send-btn {
+  width: 132rpx;
+  height: 86rpx;
+  line-height: 86rpx;
+  border-radius: 18rpx;
+  background: #22d3ee;
+  color: #06222a;
+  font-weight: 900;
+  font-size: 26rpx;
+}
+
+.loading-state,
+.empty-state,
+.error-state {
+  color: rgba(255, 255, 255, 0.58);
+  text-align: center;
+  font-size: 25rpx;
+  padding: 34rpx 0;
+}
+
+.error-state {
+  color: #fecaca;
+}

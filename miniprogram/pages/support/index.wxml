@@ -1,0 +1,29 @@
+<view class="container">
+  <view class="hero">
+    <text class="eyebrow">SERVICE DESK</text>
+    <text class="title">售后客服</text>
+    <text class="subtitle">支付、订单、发票和餐品问题都可以在这里继续跟进。</text>
+  </view>
+
+  <view class="panel glass-card">
+    <view class="panel-title">新建问题</view>
+    <input class="field" value="{{topic}}" placeholder="问题主题" bindinput="handleTopicInput" maxlength="60" />
+    <textarea class="textarea" value="{{content}}" placeholder="描述你遇到的问题" bindinput="handleContentInput" maxlength="500" />
+    <button class="submit-btn" loading="{{submitting}}" bindtap="submitTicket">提交给客服</button>
+  </view>
+
+  <view class="error-state" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+  <view class="loading-state" wx:if="{{loading}}">工单加载中...</view>
+
+  <view class="section-title">我的工单</view>
+  <view class="empty-state" wx:if="{{!loading && tickets.length === 0}}">暂无客服工单</view>
+  <view class="ticket-list">
+    <view class="ticket-card glass-card" wx:for="{{tickets}}" wx:key="id" data-id="{{item.id}}" bindtap="openTicket">
+      <view class="ticket-top">
+        <text class="ticket-topic">{{item.topic}}</text>
+        <text class="status {{item.status === 'OPEN' ? 'status-open' : 'status-closed'}}">{{item.status === 'OPEN' ? '处理中' : '已关闭'}}</text>
+      </view>
+      <view class="ticket-meta">最近更新：{{item.lastMessageAt}}</view>
+    </view>
+  </view>
+</view>

@@ -8,12 +8,12 @@ INSERT INTO categories (name, sort_order) VALUES
 ('甜品', 6);
 
 -- 初始化桌台数据
-INSERT INTO tables (table_no, capacity, location) VALUES
-('A01', 2, '大厅1号桌'),
-('A02', 4, '大厅2号桌'),
-('A03', 6, '大厅3号桌'),
-('B01', 8, '包间1号'),
-('B02', 10, '包间2号');
+INSERT INTO tables (table_no, capacity, location, area) VALUES
+('A01', 2, '大厅1号桌', '一楼大厅'),
+('A02', 4, '大厅2号桌', '一楼大厅'),
+('A03', 6, '大厅3号桌', '一楼大厅'),
+('B01', 8, '包间1号', '二楼包间'),
+('B02', 10, '包间2号', '二楼包间');
 
 -- 初始化菜品数据
 -- 这里为了避免外键错误，假设 categories 表已经生成了 ID 1-6
@@ -27,7 +27,18 @@ INSERT INTO dishes (category_id, name, description, price, image, sort_order) VA
 
 -- 初始化管理员账号（用于 admin 登录）
 INSERT INTO admin_users (id, username, password, display_name, role_name, status) VALUES
-(1, 'admin', 'admin123', '店长', '超级管理员', 1);
+(1, 'admin', 'admin123', '店长', '超级管理员', 1),
+(2, 'manager', 'manager123', '值班店长', '店长', 1),
+(3, 'support', 'support123', '客服专员', '客服', 1);
+
+-- 初始化系统设置
+INSERT INTO system_settings (setting_key, setting_value, description) VALUES
+('storeId', 'store_1', '门店ID'),
+('storeName', 'FoodOrdering 示例门店', '门店名称'),
+('openTime', '09:00', '营业开始时间'),
+('closeTime', '22:00', '营业结束时间'),
+('autoAccept', 'true', '是否自动接单'),
+('printerEnabled', 'false', '是否启用打印');
 
 -- 初始化用户数据
 INSERT INTO users (id, username, password, email, phone, avatar, status, create_time, update_time) VALUES
@@ -50,6 +61,12 @@ INSERT INTO order_items (id, order_id, dish_id, quantity, unit_price, subtotal, 
 (20004, 10003, 6, 3, 8.00, 24.00, '2026-03-01 12:20:00'),
 (20005, 10004, 3, 1, 18.00, 18.00, '2026-03-01 11:15:00');
 
+-- 初始化支付记录
+INSERT INTO payments (id, order_id, payment_no, amount, payment_method, status, payment_time, transaction_id, create_time, update_time) VALUES
+(30001, 10001, 'PAY202603010001', 54.00, 2, 1, '2026-03-01 15:31:00', 'wx_tx_10001', '2026-03-01 15:30:30', '2026-03-01 15:31:00'),
+(30002, 10002, 'PAY202603010002', 28.00, 2, 1, '2026-03-01 14:06:00', 'wx_tx_10002', '2026-03-01 14:05:30', '2026-03-01 14:06:00'),
+(30003, 10003, 'PAY202603010003', 24.00, 2, 1, '2026-03-01 12:21:00', 'wx_tx_10003', '2026-03-01 12:20:30', '2026-03-01 12:21:00');
+
 -- 初始化公告
 INSERT INTO notices (id, title, content, is_pinned, create_time, update_time) VALUES
 (1, '新品上线：香辣鸡腿堡', '本周上新，欢迎品尝。', 1, '2026-03-01 16:00:00', '2026-03-01 16:00:00'),
@@ -66,6 +83,13 @@ INSERT INTO feedbacks (id, nickname, content, status, create_time, update_time) 
 (2, 'xiaowang', '建议增加儿童餐套餐。', 'IN_PROGRESS', '2026-03-01 12:35:00', '2026-03-01 13:00:00');
 
 -- 初始化客服工单
-INSERT INTO support_tickets (id, nickname, topic, last_message_at, status, create_time, update_time) VALUES
-(1, 'xiaowang', '支付失败如何处理？', '2026-03-01 15:40:00', 'OPEN', '2026-03-01 15:30:00', '2026-03-01 15:40:00'),
-(2, 'xiaoli', '订单已完成但未收到小票', '2026-03-01 13:20:00', 'CLOSED', '2026-03-01 13:00:00', '2026-03-01 13:20:00');
+INSERT INTO support_tickets (id, user_id, nickname, topic, last_message_at, status, create_time, update_time) VALUES
+(1, 3, 'xiaowang', '支付失败如何处理？', '2026-03-01 15:40:00', 'OPEN', '2026-03-01 15:30:00', '2026-03-01 15:40:00'),
+(2, 2, 'xiaoli', '订单已完成但未收到小票', '2026-03-01 13:20:00', 'CLOSED', '2026-03-01 13:00:00', '2026-03-01 13:20:00');
+
+-- 初始化客服消息
+INSERT INTO support_ticket_messages (id, ticket_id, sender_type, sender_id, sender_name, content, is_read, create_time) VALUES
+(1, 1, 'USER', '3', 'xiaowang', '我支付时提示失败，但订单还在待支付。', 0, '2026-03-01 15:30:00'),
+(2, 1, 'ADMIN', '1', '店长', '您好，请重新发起支付；如果仍失败，我们会帮您人工核查。', 0, '2026-03-01 15:40:00'),
+(3, 2, 'USER', '2', 'xiaoli', '订单完成后没有收到小票。', 1, '2026-03-01 13:00:00'),
+(4, 2, 'ADMIN', '1', '店长', '已为您重新发送电子小票。', 1, '2026-03-01 13:20:00');

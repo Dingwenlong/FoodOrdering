@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8080
   servlet:
     context-path: /api
 
@@ -91,3 +91,21 @@ app:
     admin:
       jwt-secret: ${ADMIN_JWT_SECRET:food-ordering-admin-jwt-secret-change-me-2026}
       token-ttl-seconds: ${ADMIN_JWT_TTL_SECONDS:43200}
+    client:
+      jwt-secret: ${CLIENT_JWT_SECRET:food-ordering-client-jwt-secret-change-me-2026}
+      token-ttl-seconds: ${CLIENT_JWT_TTL_SECONDS:2592000}
+      allow-dev-fallback: ${CLIENT_AUTH_ALLOW_DEV_FALLBACK:true}
+  wechat:
+    app-id: ${WECHAT_APP_ID:}
+    app-secret: ${WECHAT_APP_SECRET:}
+    mock-login-enabled: ${WECHAT_MOCK_LOGIN_ENABLED:true}
+  pay:
+    wechat:
+      mode: ${WECHAT_PAY_MODE:mock}
+      mch-id: ${WECHAT_PAY_MCH_ID:}
+      merchant-serial-no: ${WECHAT_PAY_CERT_SERIAL_NO:}
+      private-key-path: ${WECHAT_PAY_PRIVATE_KEY_PATH:}
+      api-v3-key: ${WECHAT_PAY_API_V3_KEY:}
+      notify-url: ${WECHAT_PAY_NOTIFY_URL:}
+      platform-public-key-path: ${WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH:}
+      platform-serial-no: ${WECHAT_PAY_PLATFORM_SERIAL_NO:}

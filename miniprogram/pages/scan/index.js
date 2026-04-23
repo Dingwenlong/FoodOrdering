@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const request_1 = require("../../utils/request");
 Page({
@@ -11,7 +20,7 @@ Page({
         errorMsg: '',
     },
     onLoad(options) {
-        const preset = this.parseBindingFromOptions(options || {});
+        const preset = this.parseBindingFromOptions(options);
         if (preset) {
             this.bindTable(preset.storeId, preset.tableId);
         }
@@ -88,51 +97,52 @@ Page({
         });
     },
     handleManual() {
-        var _a, _b;
         const session = wx.getStorageSync(request_1.STORAGE_KEYS.session);
-        const storeId = String(((_a = session === null || session === void 0 ? void 0 : session.storeId) !== null && _a !== void 0 ? _a : 'store_1')).trim();
-        const tableId = String(((_b = session === null || session === void 0 ? void 0 : session.tableId) !== null && _b !== void 0 ? _b : '1')).trim();
+        const storeId = String((session === null || session === void 0 ? void 0 : session.storeId) || 'store_1').trim();
+        const tableId = String((session === null || session === void 0 ? void 0 : session.tableId) || '1').trim();
         this.bindTable(storeId, tableId);
     },
-    async bindTable(storeId, tableId) {
-        this.setData({ loading: true, errorMsg: '' });
-        wx.showLoading({ title: '绑定中...' });
-        try {
-            const res = await (0, request_1.request)({
-                url: '/session/bind-table',
-                method: 'POST',
-                data: { storeId, tableId },
-            });
-            const session = {
-                storeId: res.data.storeId,
-                storeName: res.data.storeName,
-                tableId: res.data.tableId,
-                tableName: res.data.tableName,
-            };
-            wx.setStorageSync(request_1.STORAGE_KEYS.session, session);
-            wx.setStorageSync('storeId', session.storeId);
-            wx.setStorageSync('tableId', session.tableId);
-            this.setData({
-                storeId: session.storeId,
-                storeName: session.storeName,
-                tableId: session.tableId,
-                tableName: session.tableName,
-            });
-            wx.showToast({ title: '桌台绑定成功', icon: 'success' });
-            setTimeout(() => {
-                wx.reLaunch({
-                    url: `/pages/home/index?storeId=${session.storeId}&tableId=${session.tableId}`,
+    bindTable(storeId, tableId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.setData({ loading: true, errorMsg: '' });
+            wx.showLoading({ title: '绑定中...' });
+            try {
+                const res = yield (0, request_1.request)({
+                    url: '/session/bind-table',
+                    method: 'POST',
+                    data: { storeId, tableId },
                 });
-            }, 240);
-        }
-        catch (err) {
-            const msg = err instanceof Error ? err.message : '绑定失败，请稍后重试';
-            this.setData({ errorMsg: msg });
-            wx.showToast({ title: msg, icon: 'none' });
-        }
-        finally {
-            wx.hideLoading();
-            this.setData({ loading: false });
-        }
+                const session = {
+                    storeId: res.data.storeId,
+                    storeName: res.data.storeName,
+                    tableId: res.data.tableId,
+                    tableName: res.data.tableName,
+                };
+                wx.setStorageSync(request_1.STORAGE_KEYS.session, session);
+                wx.setStorageSync('storeId', session.storeId);
+                wx.setStorageSync('tableId', session.tableId);
+                this.setData({
+                    storeId: session.storeId,
+                    storeName: session.storeName,
+                    tableId: session.tableId,
+                    tableName: session.tableName,
+                });
+                wx.showToast({ title: '桌台绑定成功', icon: 'success' });
+                setTimeout(() => {
+                    wx.reLaunch({
+                        url: `/pages/home/index?storeId=${session.storeId}&tableId=${session.tableId}`,
+                    });
+                }, 240);
+            }
+            catch (err) {
+                const msg = err instanceof Error ? err.message : '绑定失败，请稍后重试';
+                this.setData({ errorMsg: msg });
+                wx.showToast({ title: msg, icon: 'none' });
+            }
+            finally {
+                wx.hideLoading();
+                this.setData({ loading: false });
+            }
+        });
     },
 });

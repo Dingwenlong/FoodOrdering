@@ -13,7 +13,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Tag(name = "用户端接口", description = "提供移动端/小程序所需的点餐、支付、订单管理等功能")
 @RestController
@@ -24,6 +27,12 @@ public class ClientController {
 
     public ClientController(ClientService clientService) {
         this.clientService = clientService;
+    }
+
+    @Operation(summary = "微信小程序登录", description = "使用 wx.login 返回的 code 换取用户端 JWT")
+    @PostMapping("/auth/wechat-login")
+    public ClientDtos.WechatLoginResponse wechatLogin(@RequestBody ClientDtos.WechatLoginRequest request) {
+        return clientService.wechatLogin(request);
     }
 
     @Operation(summary = "绑定桌号", description = "用户扫码后通过桌号信息开启点餐会话")
@@ -86,6 +95,16 @@ public class ClientController {
         return clientService.createWechatPrepay(request);
     }
 
+    @Operation(summary = "微信支付回调", description = "接收微信支付 v3 支付成功通知")
+    @PostMapping("/pay/wechat/notify")
+    public Map<String, String> wechatPayNotify(@RequestBody String body, HttpServletRequest request) {
+        Map<String, String> headers = java.util.Collections.list(request.getHeaderNames())
+                .stream()
+                .collect(Collectors.toMap(name -> name, request::getHeader, (a, b) -> a));
+        clientService.handleWechatPayNotify(headers, body);
+        return Map.of("code", "SUCCESS", "message", "成功");
+    }
+
     @Operation(summary = "确认支付结果", description = "手动同步支付状态（仅用于模拟环境）")
     @PostMapping("/pay/wechat/confirm")
     public ClientDtos.OrderView confirmPay(@RequestBody ClientDtos.PrepayRequest request) {
@@ -96,5 +115,40 @@ public class ClientController {
     @PostMapping("/orders/{orderId}/urge")
     public ClientDtos.UrgeOrderResponse urgeOrder(@Parameter(description = "订单ID") @PathVariable("orderId") String orderId) {
         return clientService.urgeOrder(orderId);
+    }
+
+    @Operation(summary = "创建客服工单")
+    @PostMapping("/support/tickets")
+    public ClientDtos.SupportTicketDetailView createSupportTicket(@RequestBody ClientDtos.CreateSupportTicketRequest request) {
+        return clientService.createSupportTicket(request);
+    }
+
+    @Operation(summary = "获取我的客服工单列表")
+    @GetMapping("/support/tickets")
+    public List<ClientDtos.SupportTicketView> listSupportTickets() {
+        return clientService.listSupportTickets();
+    }
+
+    @Operation(summary = "获取客服工单详情")
+    @GetMapping("/support/tickets/{ticketId}")
+    public ClientDtos.SupportTicketDetailView getSupportTicket(@Parameter(description = "工单ID") @PathVariable("ticketId") String ticketId) {
+        return clientService.getSupportTicket(ticketId);
+    }
+
+    @Operation(summary = "获取客服工单消息")
+    @GetMapping("/support/tickets/{ticketId}/messages")
+    public ClientDtos.PageResult<ClientDtos.SupportTicketMessageView> listSupportMessages(
+            @Parameter(description = "工单ID") @PathVariable("ticketId") String ticketId,
+            @Parameter(description = "页码") @RequestParam(value = "page", required = false) Integer page,
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize) {
+        return clientService.listSupportMessages(ticketId, page, pageSize);
+    }
+
+    @Operation(summary = "发送客服消息")
+    @PostMapping("/support/tickets/{ticketId}/messages")
+    public ClientDtos.SupportTicketMessageView sendSupportMessage(
+            @Parameter(description = "工单ID") @PathVariable("ticketId") String ticketId,
+            @RequestBody ClientDtos.SendSupportMessageRequest request) {
+        return clientService.sendSupportMessage(ticketId, request);
     }
 }

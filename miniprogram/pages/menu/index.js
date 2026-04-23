@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const request_1 = require("../../utils/request");
 const DRINK_CATEGORY_PATTERN = /(饮品|饮料|奶茶|茶饮|果汁|咖啡)/;
@@ -49,7 +58,7 @@ Page({
         this.scrollLockUntil = 0;
         this.sectionMeasureTimer = null;
         this.specDraftMap = {};
-        this.resolveSession(options || {});
+        this.resolveSession(options);
         this.restoreCart();
         if (this.data.storeId) {
             this.fetchMenu(this.data.storeId);
@@ -95,49 +104,51 @@ Page({
         this.setData(session);
     },
     restoreCart() {
-        const cart = wx.getStorageSync(request_1.STORAGE_KEYS.cart) || {};
+        const cart = (wx.getStorageSync(request_1.STORAGE_KEYS.cart) || {});
         this.setData({ cart });
     },
-    async fetchMenu(storeId) {
+    fetchMenu(storeId) {
         var _a, _b;
-        this.setData({ loading: true, errorMsg: '' });
-        try {
-            const res = await (0, request_1.request)({
-                url: `/menu?storeId=${encodeURIComponent(storeId)}`,
-                method: 'GET',
-            });
-            const payload = res.data;
-            const categories = (payload.categories || []).map((category) => (Object.assign(Object.assign({}, category), { dishes: (category.dishes || []).slice().sort((a, b) => Number(a.id) - Number(b.id)) })));
-            const viewCategories = this.buildViewCategories(categories, this.data.keyword);
-            const fallbackCurrent = this.data.currentCategory || ((_a = viewCategories[0]) === null || _a === void 0 ? void 0 : _a.id) || '';
-            const nextCurrent = viewCategories.some((item) => item.id === fallbackCurrent)
-                ? fallbackCurrent
-                : (((_b = viewCategories[0]) === null || _b === void 0 ? void 0 : _b.id) || '');
-            this.setData({
-                storeName: payload.storeName || this.data.storeName,
-                categories,
-                viewCategories,
-                currentCategory: nextCurrent,
-                sidebarToView: nextCurrent ? `menu-tab-${nextCurrent}` : '',
-                sectionAnchors: [],
-            }, () => {
-                this.scheduleMeasureSectionAnchors();
-            });
-            wx.setStorageSync('menuCache', {
-                storeId,
-                categories,
-                updatedAt: Date.now(),
-            });
-            this.calcTotal(this.data.cart, categories);
-        }
-        catch (err) {
-            const msg = err instanceof Error ? err.message : '加载菜单失败';
-            this.setData({ errorMsg: msg });
-            wx.showToast({ title: msg, icon: 'none' });
-        }
-        finally {
-            this.setData({ loading: false });
-        }
+        return __awaiter(this, void 0, void 0, function* () {
+            this.setData({ loading: true, errorMsg: '' });
+            try {
+                const res = yield (0, request_1.request)({
+                    url: `/menu?storeId=${encodeURIComponent(storeId)}`,
+                    method: 'GET',
+                });
+                const payload = res.data;
+                const categories = (payload.categories || []).map((category) => (Object.assign(Object.assign({}, category), { dishes: (category.dishes || []).slice().sort((a, b) => Number(a.id) - Number(b.id)) })));
+                const viewCategories = this.buildViewCategories(categories, this.data.keyword);
+                const fallbackCurrent = this.data.currentCategory || ((_a = viewCategories[0]) === null || _a === void 0 ? void 0 : _a.id) || '';
+                const nextCurrent = viewCategories.some((item) => item.id === fallbackCurrent)
+                    ? fallbackCurrent
+                    : (((_b = viewCategories[0]) === null || _b === void 0 ? void 0 : _b.id) || '');
+                this.setData({
+                    storeName: payload.storeName || this.data.storeName,
+                    categories,
+                    viewCategories,
+                    currentCategory: nextCurrent,
+                    sidebarToView: nextCurrent ? `menu-tab-${nextCurrent}` : '',
+                    sectionAnchors: [],
+                }, () => {
+                    this.scheduleMeasureSectionAnchors();
+                });
+                wx.setStorageSync('menuCache', {
+                    storeId,
+                    categories,
+                    updatedAt: Date.now(),
+                });
+                this.calcTotal(this.data.cart, categories);
+            }
+            catch (err) {
+                const msg = err instanceof Error ? err.message : '加载菜单失败';
+                this.setData({ errorMsg: msg });
+                wx.showToast({ title: msg, icon: 'none' });
+            }
+            finally {
+                this.setData({ loading: false });
+            }
+        });
     },
     isDrinkDish(dish, categoryName) {
         return DRINK_CATEGORY_PATTERN.test(categoryName) || DRINK_DISH_PATTERN.test(dish.name);
@@ -227,8 +238,8 @@ Page({
         query.selectAll('.category-section').boundingClientRect();
         query.exec((res) => {
             const listRect = res === null || res === void 0 ? void 0 : res[0];
-            const scrollInfo = (res === null || res === void 0 ? void 0 : res[1]) || {};
-            const sectionRects = (res === null || res === void 0 ? void 0 : res[2]) || [];
+            const scrollInfo = ((res === null || res === void 0 ? void 0 : res[1]) || {});
+            const sectionRects = ((res === null || res === void 0 ? void 0 : res[2]) || []);
             if (!listRect || !sectionRects.length) {
                 this.setData({ sectionAnchors: [] });
                 return;
@@ -249,12 +260,12 @@ Page({
         });
     },
     handleKeywordInput(e) {
-        var _a;
+        var _a, _b;
         const keyword = ((_a = e.detail) === null || _a === void 0 ? void 0 : _a.value) || '';
         const viewCategories = this.buildViewCategories(this.data.categories, keyword);
         const currentCategory = viewCategories.some((item) => item.id === this.data.currentCategory)
             ? this.data.currentCategory
-            : ((viewCategories[0] || {}).id || '');
+            : (((_b = viewCategories[0]) === null || _b === void 0 ? void 0 : _b.id) || '');
         this.setData({
             keyword,
             viewCategories,
@@ -267,8 +278,9 @@ Page({
         });
     },
     clearKeyword() {
+        var _a;
         const viewCategories = this.buildViewCategories(this.data.categories, '');
-        const currentCategory = (viewCategories[0] || {}).id || '';
+        const currentCategory = ((_a = viewCategories[0]) === null || _a === void 0 ? void 0 : _a.id) || '';
         this.setData({
             keyword: '',
             viewCategories,
@@ -335,7 +347,7 @@ Page({
             this.applyCartDelta(dish.id, 1);
             return;
         }
-        const draftMap = this.specDraftMap || {};
+        const draftMap = (this.specDraftMap || {});
         const draftSelections = draftMap[dish.id] || [];
         const specSelections = specGroups.map((group, index) => {
             const selected = Number(draftSelections[index]);
@@ -387,6 +399,7 @@ Page({
             .join(' / ');
     },
     selectSpecOption(e) {
+        var _a;
         const groupIndex = Number(e.currentTarget.dataset.groupIndex || 0);
         const optionIndex = Number(e.currentTarget.dataset.optionIndex || 0);
         const group = this.data.specGroups[groupIndex];
@@ -401,7 +414,7 @@ Page({
             specSelections,
             specSummary,
         });
-        const dishId = (this.data.specDish || {}).id;
+        const dishId = (_a = this.data.specDish) === null || _a === void 0 ? void 0 : _a.id;
         if (dishId) {
             const draftMap = Object.assign({}, (this.specDraftMap || {}));
             draftMap[dishId] = specSelections;

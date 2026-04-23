@@ -1,15 +1,17 @@
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(50) UNIQUE NOT NULL COMMENT '用户名',
-    password VARCHAR(255) NOT NULL COMMENT '密码',
-    email VARCHAR(100) UNIQUE NOT NULL COMMENT '邮箱',
+    password VARCHAR(255) COMMENT '密码',
+    email VARCHAR(100) UNIQUE COMMENT '邮箱',
     phone VARCHAR(20) COMMENT '手机号',
     avatar VARCHAR(255) COMMENT '头像URL',
+    wechat_openid VARCHAR(128) UNIQUE COMMENT '微信小程序 OpenID',
     status TINYINT DEFAULT 1 COMMENT '状态：1正常，0禁用',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_users_username (username),
-    INDEX idx_users_email (email)
+    INDEX idx_users_email (email),
+    INDEX idx_users_wechat_openid (wechat_openid)
 ) COMMENT='用户表';
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -45,9 +47,11 @@ CREATE TABLE IF NOT EXISTS tables (
     capacity INT NOT NULL COMMENT '容纳人数',
     status TINYINT DEFAULT 0 COMMENT '状态：0空闲，1占用，2预订',
     location VARCHAR(100) COMMENT '位置描述',
+    area VARCHAR(100) COMMENT '所属区域',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_tables_status (status)
+    INDEX idx_tables_status (status),
+    INDEX idx_tables_area (area)
 ) COMMENT='桌台表';
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -151,14 +155,17 @@ CREATE TABLE IF NOT EXISTS feedbacks (
 
 CREATE TABLE IF NOT EXISTS support_tickets (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT COMMENT '关联用户ID',
     nickname VARCHAR(100) NOT NULL COMMENT '昵称',
     topic VARCHAR(200) NOT NULL COMMENT '问题主题',
     last_message_at DATETIME NOT NULL COMMENT '最后消息时间',
     status VARCHAR(20) NOT NULL COMMENT '状态：OPEN/CLOSED',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_support_tickets_user_id (user_id),
     INDEX idx_support_tickets_status (status),
-    INDEX idx_support_tickets_last_message_at (last_message_at)
+    INDEX idx_support_tickets_last_message_at (last_message_at),
+    FOREIGN KEY (user_id) REFERENCES users(id)
 ) COMMENT='客服工单表';
 
 CREATE TABLE IF NOT EXISTS support_ticket_messages (
@@ -174,3 +181,29 @@ CREATE TABLE IF NOT EXISTS support_ticket_messages (
     INDEX idx_messages_create_time (create_time),
     FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
 ) COMMENT='客服工单消息表';
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    setting_key VARCHAR(80) UNIQUE NOT NULL COMMENT '配置键',
+    setting_value VARCHAR(500) NOT NULL COMMENT '配置值',
+    description VARCHAR(200) COMMENT '配置说明',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_system_settings_key (setting_key)
+) COMMENT='系统设置表';
+
+CREATE TABLE IF NOT EXISTS admin_operation_logs (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    admin_id BIGINT COMMENT '管理员ID',
+    admin_name VARCHAR(100) COMMENT '管理员名称',
+    action VARCHAR(20) NOT NULL COMMENT '操作动作',
+    resource_type VARCHAR(80) COMMENT '资源类型',
+    resource_id VARCHAR(80) COMMENT '资源ID',
+    request_path VARCHAR(255) NOT NULL COMMENT '请求路径',
+    result VARCHAR(20) NOT NULL COMMENT '操作结果：SUCCESS/FAILED',
+    message VARCHAR(500) COMMENT '错误或说明',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_admin_logs_admin_id (admin_id),
+    INDEX idx_admin_logs_result (result),
+    INDEX idx_admin_logs_create_time (create_time)
+) COMMENT='后台操作审计日志表';

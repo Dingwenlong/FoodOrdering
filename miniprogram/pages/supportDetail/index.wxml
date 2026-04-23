@@ -1,0 +1,27 @@
+<view class="container">
+  <view class="header glass-card" wx:if="{{detail}}">
+    <view>
+      <text class="topic">{{detail.topic}}</text>
+      <text class="meta">工单 {{detail.id}} · {{detail.status === 'OPEN' ? '处理中' : '已关闭'}}</text>
+    </view>
+    <button class="refresh-btn" loading="{{loading}}" bindtap="refresh">刷新</button>
+  </view>
+
+  <view class="error-state" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+  <view class="loading-state" wx:if="{{loading && messages.length === 0}}">消息加载中...</view>
+
+  <scroll-view class="message-list" scroll-y>
+    <view class="message {{item.senderType === 'USER' ? 'message-user' : 'message-admin'}}" wx:for="{{messages}}" wx:key="id">
+      <view class="bubble">
+        <text class="sender">{{item.senderName}} · {{item.createdAt}}</text>
+        <text class="content">{{item.content}}</text>
+      </view>
+    </view>
+    <view class="empty-state" wx:if="{{!loading && messages.length === 0}}">暂无消息</view>
+  </scroll-view>
+
+  <view class="composer">
+    <textarea class="input" value="{{input}}" bindinput="handleInput" disabled="{{detail && detail.status === 'CLOSED'}}" placeholder="{{detail && detail.status === 'CLOSED' ? '工单已关闭' : '输入消息'}}" maxlength="500" />
+    <button class="send-btn" loading="{{sending}}" disabled="{{!input || (detail && detail.status === 'CLOSED')}}" bindtap="sendMessage">发送</button>
+  </view>
+</view>

@@ -110,6 +110,30 @@
   .glass-badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-white/10 backdrop-blur-sm shadow-sm;
   }
+
+  .input {
+    @apply glass-input;
+  }
+
+  .btn-primary {
+    @apply glass-btn disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100;
+  }
+
+  .btn-ghost {
+    @apply glass-btn-secondary disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100;
+  }
+
+  .stat-card {
+    @apply rounded-2xl border border-white/10 bg-white/[0.04] p-5;
+  }
+
+  .stat-card span {
+    @apply text-sm text-white/50;
+  }
+
+  .stat-card strong {
+    @apply mt-2 block text-2xl font-semibold text-white;
+  }
 }
 
 /* 滚动条美化 */

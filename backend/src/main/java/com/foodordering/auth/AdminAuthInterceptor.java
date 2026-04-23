@@ -1,6 +1,8 @@
 package com.foodordering.auth;
 
 import com.foodordering.entity.AdminUserAccount;
+import com.foodordering.entity.AdminOperationLog;
+import com.foodordering.mapper.AdminOperationLogMapper;
 import com.foodordering.mapper.AdminUserAccountMapper;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -12,6 +14,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.time.LocalDateTime;
 
 @Component
 public class AdminAuthInterceptor implements HandlerInterceptor {
@@ -21,15 +24,18 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
     private final AdminJwtTokenService adminJwtTokenService;
     private final AdminUserAccountMapper adminUserAccountMapper;
     private final AdminAuthorizationService adminAuthorizationService;
+    private final AdminOperationLogMapper adminOperationLogMapper;
 
     public AdminAuthInterceptor(
             AdminJwtTokenService adminJwtTokenService,
             AdminUserAccountMapper adminUserAccountMapper,
-            AdminAuthorizationService adminAuthorizationService
+            AdminAuthorizationService adminAuthorizationService,
+            AdminOperationLogMapper adminOperationLogMapper
     ) {
         this.adminJwtTokenService = adminJwtTokenService;
         this.adminUserAccountMapper = adminUserAccountMapper;
         this.adminAuthorizationService = adminAuthorizationService;
+        this.adminOperationLogMapper = adminOperationLogMapper;
     }
 
     @Override
@@ -53,6 +59,34 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
 
         request.setAttribute(CURRENT_ADMIN_ATTR, account);
         return true;
+    }
+
+    @Override
+    public void afterCompletion(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Object handler,
+            Exception ex
+    ) {
+        if (!shouldAudit(request)) {
+            return;
+        }
+        Object value = request.getAttribute(CURRENT_ADMIN_ATTR);
+        if (!(value instanceof AdminUserAccount account)) {
+            return;
+        }
+
+        AdminOperationLog log = new AdminOperationLog();
+        log.setAdminId(account.getId());
+        log.setAdminName(account.getDisplayName());
+        log.setAction(request.getMethod());
+        log.setRequestPath(request.getRequestURI());
+        log.setResourceType(resolveResourceType(request.getRequestURI()));
+        log.setResourceId(resolveResourceId(request.getRequestURI()));
+        log.setResult(ex == null && response.getStatus() < 400 ? "SUCCESS" : "FAILED");
+        log.setMessage(ex == null ? null : ex.getMessage());
+        log.setCreateTime(LocalDateTime.now());
+        adminOperationLogMapper.insert(log);
     }
 
     public static AdminUserAccount requireCurrentAdmin(HttpServletRequest request) {
@@ -96,5 +130,32 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
         if (!adminAuthorizationService.hasAllPermissions(account.getRoleName(), authorize.value())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权限执行该操作");
         }
+    }
+
+    private boolean shouldAudit(HttpServletRequest request) {
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) || "OPTIONS".equalsIgnoreCase(method)) {
+            return false;
+        }
+        String uri = request.getRequestURI();
+        return uri != null
+                && uri.startsWith("/v1/admin/")
+                && !uri.endsWith("/auth/login");
+    }
+
+    private String resolveResourceType(String uri) {
+        if (!StringUtils.hasText(uri)) {
+            return "admin";
+        }
+        String[] parts = uri.split("/");
+        return parts.length > 3 ? parts[3] : "admin";
+    }
+
+    private String resolveResourceId(String uri) {
+        if (!StringUtils.hasText(uri)) {
+            return null;
+        }
+        String[] parts = uri.split("/");
+        return parts.length > 4 ? parts[4] : null;
     }
 }

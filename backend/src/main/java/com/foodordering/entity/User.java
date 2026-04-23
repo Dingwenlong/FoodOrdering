@@ -16,6 +16,7 @@ public class User {
     private String email;
     private String phone;
     private String avatar;
+    private String wechatOpenid;
     private Integer status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
@@ -32,6 +33,8 @@ public class User {
     public void setPhone(String phone) { this.phone = phone; }
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }
+    public String getWechatOpenid() { return wechatOpenid; }
+    public void setWechatOpenid(String wechatOpenid) { this.wechatOpenid = wechatOpenid; }
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
     public LocalDateTime getCreateTime() { return createTime; }

@@ -96,6 +96,65 @@ public class AdminController {
         return adminService.listUsersPaged(resolvedPage, resolvedPageSize, keyword, status);
     }
 
+    @Operation(summary = "查询管理员角色")
+    @GetMapping("/roles")
+    @AdminAuthorize(AdminPermission.ADMIN_USER_MANAGE)
+    public List<AdminDtos.RoleView> roles() {
+        return adminService.listRoles();
+    }
+
+    @Operation(summary = "查询管理员账号列表")
+    @GetMapping("/admin-users")
+    @AdminAuthorize(AdminPermission.ADMIN_USER_MANAGE)
+    public AdminDtos.PageResult<AdminDtos.AdminAccountView> adminUsers(
+            @Parameter(description = "页码") @RequestParam(value = "page", required = false) Integer page,
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "关键词") @RequestParam(value = "keyword", required = false) String keyword,
+            @Parameter(description = "角色") @RequestParam(value = "roleName", required = false) String roleName,
+            @Parameter(description = "状态") @RequestParam(value = "status", required = false) String status) {
+        return adminService.listAdminAccounts(
+                page == null ? 1 : page,
+                pageSize == null ? 20 : pageSize,
+                keyword,
+                roleName,
+                status
+        );
+    }
+
+    @Operation(summary = "创建管理员账号")
+    @PostMapping("/admin-users")
+    @AdminAuthorize(AdminPermission.ADMIN_USER_MANAGE)
+    public AdminDtos.AdminAccountView createAdminUser(@RequestBody AdminDtos.AdminAccountUpsertRequest request) {
+        return adminService.createAdminAccount(request);
+    }
+
+    @Operation(summary = "更新管理员账号")
+    @PutMapping("/admin-users/{adminUserId}")
+    @AdminAuthorize(AdminPermission.ADMIN_USER_MANAGE)
+    public AdminDtos.AdminAccountView updateAdminUser(
+            @Parameter(description = "管理员ID") @PathVariable("adminUserId") String adminUserId,
+            @RequestBody AdminDtos.AdminAccountUpsertRequest request) {
+        return adminService.updateAdminAccount(adminUserId, request);
+    }
+
+    @Operation(summary = "修改管理员账号状态")
+    @PatchMapping("/admin-users/{adminUserId}/status")
+    @AdminAuthorize(AdminPermission.ADMIN_USER_MANAGE)
+    public AdminDtos.AdminAccountView updateAdminUserStatus(
+            @Parameter(description = "管理员ID") @PathVariable("adminUserId") String adminUserId,
+            @RequestBody AdminDtos.AdminAccountStatusUpdateRequest request) {
+        return adminService.updateAdminAccountStatus(adminUserId, request);
+    }
+
+    @Operation(summary = "重置管理员账号密码")
+    @PostMapping("/admin-users/{adminUserId}/reset-password")
+    @AdminAuthorize(AdminPermission.ADMIN_USER_MANAGE)
+    public AdminDtos.AdminAccountView resetAdminUserPassword(
+            @Parameter(description = "管理员ID") @PathVariable("adminUserId") String adminUserId,
+            @RequestBody AdminDtos.AdminPasswordResetRequest request) {
+        return adminService.resetAdminPassword(adminUserId, request);
+    }
+
     @Operation(summary = "获取用户详情")
     @GetMapping("/users/{userId}")
     public AdminDtos.AppUserDetailView userDetail(
@@ -164,11 +223,34 @@ public class AdminController {
         adminService.deleteDish(dishId);
     }
 
-    @Operation(summary = "查询订单列表", description = "支持根据状态过滤")
+    @Operation(summary = "查询订单列表", description = "支持分页、状态、关键词、桌台、用户和日期范围过滤")
     @GetMapping("/orders")
-    public List<AdminDtos.OrderView> orders(
-            @Parameter(description = "订单状态") @RequestParam(value = "status", required = false) String status) {
-        return adminService.listOrders(status);
+    public AdminDtos.PageResult<AdminDtos.OrderView> orders(
+            @Parameter(description = "页码") @RequestParam(value = "page", required = false) Integer page,
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "订单状态") @RequestParam(value = "status", required = false) String status,
+            @Parameter(description = "关键词") @RequestParam(value = "keyword", required = false) String keyword,
+            @Parameter(description = "桌台ID") @RequestParam(value = "tableId", required = false) String tableId,
+            @Parameter(description = "用户ID") @RequestParam(value = "userId", required = false) String userId,
+            @Parameter(description = "开始日期") @RequestParam(value = "from", required = false) String from,
+            @Parameter(description = "结束日期") @RequestParam(value = "to", required = false) String to) {
+        return adminService.listOrdersPaged(
+                page == null ? 1 : page,
+                pageSize == null ? 20 : pageSize,
+                status,
+                keyword,
+                tableId,
+                userId,
+                from,
+                to
+        );
+    }
+
+    @Operation(summary = "获取订单详情")
+    @GetMapping("/orders/{orderId}")
+    public AdminDtos.OrderView orderDetail(
+            @Parameter(description = "订单ID") @PathVariable("orderId") String orderId) {
+        return adminService.getOrderDetail(orderId);
     }
 
     @Operation(summary = "修改订单状态")
@@ -182,8 +264,57 @@ public class AdminController {
 
     @Operation(summary = "获取菜品销量统计")
     @GetMapping("/stats/dish-sales")
+    @AdminAuthorize(AdminPermission.STATS_VIEW)
     public List<AdminDtos.DishSalesView> dishSales() {
         return adminService.getDishSales();
+    }
+
+    @Operation(summary = "获取经营统计摘要")
+    @GetMapping("/stats/summary")
+    @AdminAuthorize(AdminPermission.STATS_VIEW)
+    public AdminDtos.StatsSummaryView statsSummary(
+            @Parameter(description = "开始日期") @RequestParam(value = "from", required = false) String from,
+            @Parameter(description = "结束日期") @RequestParam(value = "to", required = false) String to) {
+        return adminService.getStatsSummary(from, to);
+    }
+
+    @Operation(summary = "获取经营趋势")
+    @GetMapping("/stats/trend")
+    @AdminAuthorize(AdminPermission.STATS_VIEW)
+    public List<AdminDtos.StatsTrendPointView> statsTrend(
+            @Parameter(description = "开始日期") @RequestParam(value = "from", required = false) String from,
+            @Parameter(description = "结束日期") @RequestParam(value = "to", required = false) String to) {
+        return adminService.getStatsTrend(from, to);
+    }
+
+    @Operation(summary = "获取系统设置")
+    @GetMapping("/settings")
+    @AdminAuthorize(AdminPermission.SETTINGS_MANAGE)
+    public AdminDtos.SystemSettingsView settings() {
+        return adminService.getSystemSettings();
+    }
+
+    @Operation(summary = "更新系统设置")
+    @PutMapping("/settings")
+    @AdminAuthorize(AdminPermission.SETTINGS_MANAGE)
+    public AdminDtos.SystemSettingsView updateSettings(@RequestBody AdminDtos.SystemSettingsUpdateRequest request) {
+        return adminService.updateSystemSettings(request);
+    }
+
+    @Operation(summary = "查询审计日志")
+    @GetMapping("/audit-logs")
+    @AdminAuthorize(AdminPermission.AUDIT_LOG_VIEW)
+    public AdminDtos.PageResult<AdminDtos.AuditLogView> auditLogs(
+            @Parameter(description = "页码") @RequestParam(value = "page", required = false) Integer page,
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "关键词") @RequestParam(value = "keyword", required = false) String keyword,
+            @Parameter(description = "结果") @RequestParam(value = "result", required = false) String result) {
+        return adminService.listAuditLogs(
+                page == null ? 1 : page,
+                pageSize == null ? 20 : pageSize,
+                keyword,
+                result
+        );
     }
 
     @Operation(summary = "获取评价列表")
@@ -282,6 +413,13 @@ public class AdminController {
     public AdminDtos.TableView tableDetail(
             @Parameter(description = "桌码ID") @PathVariable("tableId") String tableId) {
         return adminService.getTableDetail(tableId);
+    }
+
+    @Operation(summary = "获取桌码二维码内容")
+    @GetMapping("/tables/{tableId}/qr-payload")
+    public AdminDtos.QrPayloadView tableQrPayload(
+            @Parameter(description = "桌码ID") @PathVariable("tableId") String tableId) {
+        return adminService.getTableQrPayload(tableId);
     }
 
     @Operation(summary = "创建桌码")

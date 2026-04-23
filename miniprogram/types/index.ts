@@ -92,6 +92,7 @@ export interface PrepayPayload {
 export interface PrepayResult {
   timeStamp: string;
   nonceStr: string;
+  package?: string;
   prepayPackage: string;
   signType: string;
   paySign: string;
@@ -102,4 +103,47 @@ export interface UrgeOrderResult {
   status: OrderStatus;
   message: string;
   urgedAt: string;
+}
+
+export interface ClientUser {
+  id: ID;
+  nickname: string;
+  avatar?: string;
+  openid?: string;
+}
+
+export interface WechatLoginResult {
+  token: string;
+  user: ClientUser;
+}
+
+export interface SupportTicket {
+  id: ID;
+  nickname: string;
+  topic: string;
+  lastMessageAt: string;
+  status: 'OPEN' | 'CLOSED';
+}
+
+export interface SupportTicketDetail extends SupportTicket {
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupportTicketMessage {
+  id: ID;
+  ticketId: ID;
+  senderType: 'USER' | 'ADMIN';
+  senderId: string;
+  senderName: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface PageResult<T> {
+  list: T[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

@@ -5,7 +5,9 @@
     "pages/menu/index",
     "pages/cart/index",
     "pages/orders/index",
-    "pages/orderDetail/index"
+    "pages/orderDetail/index",
+    "pages/support/index",
+    "pages/supportDetail/index"
   ],
   "window": {
     "backgroundTextStyle": "light",

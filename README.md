@@ -49,14 +49,16 @@ FoodOrdering/
 
 - `admin` 默认走 Mock（`admin/.env.development` 中 `VITE_USE_MOCK=true`），可独立运行演示。
 - `miniprogram` 也默认走 Mock（`wx.getStorageSync('MP_USE_MOCK') !== false` 时启用）。
+- `backend` 已支持用户端微信登录：`POST /api/v1/auth/wechat-login` 使用小程序 `wx.login` 的 `code` 换取用户端 JWT，真实接口模式下订单、支付、评价、客服接口会校验 `Authorization: Bearer <token>`。
+- `backend` 已提供微信支付 v3 JSAPI 支付服务抽象：开发默认 `WECHAT_PAY_MODE=mock`，生产可切换为真实下单和支付成功回调 `/api/v1/pay/wechat/notify`。
 - `backend` 已有完整点餐相关表结构（用户、分类、菜品、桌台、订单、订单明细、支付）。
 - `backend` 已补齐管理端读取类接口（`/api/v1/admin/*`），可支撑管理端切换真实接口联调。
 - `backend` 已补齐管理端核心写操作接口（公告、分类、菜品增删改，用户/留言/工单状态更新，订单状态更新）。
 - `backend` 已启用管理端真实鉴权：登录签发 JWT，`/api/v1/admin/auth/login` 之外的管理接口统一校验 `Authorization: Bearer <token>`。
 - `backend` 已补充管理端角色/资源授权：针对公告、用户状态、菜单、订单状态、留言状态、工单状态等写操作按角色进行权限校验。
 - 管理员密码已支持 BCrypt 哈希校验，并兼容历史明文种子自动升级。
-- `backend` 已补齐小程序真实接口：绑定桌台、菜单、创建订单、订单详情、微信支付预下单与支付确认。
-- `miniprogram` 已补齐扫码解析/手动绑桌、菜单搜索与售罄态、购物车备注与清空、订单详情支付闭环。
+- `backend` 已补齐小程序真实接口：绑定桌台、菜单、创建订单、订单详情、微信支付预下单与开发确认、用户端客服工单与消息。
+- `miniprogram` 已补齐扫码解析/手动绑桌、菜单搜索与售罄态、购物车备注与清空、订单详情支付闭环、售后客服工单。
 
 ## 5. 环境要求
 
@@ -98,6 +100,12 @@ cd backend
 
 - `ADMIN_JWT_SECRET`：JWT 签名密钥（建议 32 字节以上）
 - `ADMIN_JWT_TTL_SECONDS`：token 有效期秒数（默认 `43200`）
+- `CLIENT_JWT_SECRET`：用户端 JWT 签名密钥（建议 32 字节以上）
+- `CLIENT_JWT_TTL_SECONDS`：用户端 token 有效期秒数（默认 `2592000`）
+- `WECHAT_APP_ID` / `WECHAT_APP_SECRET`：微信小程序登录配置；开发环境未配置时可用 mock openid。
+- `WECHAT_PAY_MODE`：`mock` 或 `real`；默认 `mock`。
+- `WECHAT_PAY_MCH_ID`、`WECHAT_PAY_CERT_SERIAL_NO`、`WECHAT_PAY_PRIVATE_KEY_PATH`、`WECHAT_PAY_API_V3_KEY`、`WECHAT_PAY_NOTIFY_URL`：微信支付 v3 真实下单配置。
+- `WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH`、`WECHAT_PAY_PLATFORM_SERIAL_NO`：微信支付回调验签配置；真实支付回调必须配置平台公钥或平台证书路径。
 
 ### 6.2 启动管理端
 
@@ -130,13 +138,20 @@ npm run dev
 - 浏览菜单
 - 加购下单
 - 查看订单详情与模拟支付
+- 创建客服工单并发送消息
 
-说明：小程序请求层默认前缀已统一为 `http://localhost:8080/api/v1`，切换真实接口时无需改调用路径。
+说明：小程序请求层默认前缀已统一为 `http://localhost:8080/api/v1`，切换真实接口时无需改调用路径。真实接口模式下会自动调用 `wx.login` 并缓存用户端 token。
 开发时如需切换真实接口：
 
 1. 在小程序控制台执行：`wx.setStorageSync('MP_USE_MOCK', false)`
 2. 如后端不在本机，可配置：`wx.setStorageSync('MP_API_BASE_URL', 'http://你的后端地址')`
 3. 重新编译小程序
+
+真实微信支付联调：
+
+1. 使用 `SPRING_PROFILES_ACTIVE=prod` 启动后端，并提供 MySQL、微信小程序、微信支付 v3 环境变量。
+2. 将 `WECHAT_PAY_NOTIFY_URL` 配置为微信支付可公网访问的 `https://你的域名/api/v1/pay/wechat/notify`。
+3. 小程序真实接口模式下，订单详情页会调用 `/pay/wechat/prepay` 获取 `wx.requestPayment` 参数；支付最终状态以后端回调更新为准。
 
 ## 7. 可选：启动依赖中间件
 
@@ -196,12 +211,19 @@ docker compose up -d
 - `GET /api/v1/admin/support/tickets`
 - `PATCH /api/v1/admin/support/tickets/{ticketId}/status`
 - `POST /api/v1/session/bind-table`
+- `POST /api/v1/auth/wechat-login`
 - `GET /api/v1/menu?storeId=store_1`
 - `POST /api/v1/orders`
 - `GET /api/v1/orders/{orderId}`
 - `POST /api/v1/pay/wechat/prepay`
+- `POST /api/v1/pay/wechat/notify`
 - `POST /api/v1/pay/wechat/confirm`
 - `POST /api/v1/orders/{orderId}/urge`
+- `POST /api/v1/support/tickets`
+- `GET /api/v1/support/tickets`
+- `GET /api/v1/support/tickets/{ticketId}`
+- `GET /api/v1/support/tickets/{ticketId}/messages`
+- `POST /api/v1/support/tickets/{ticketId}/messages`
 
 ## 10. 后续建议
 

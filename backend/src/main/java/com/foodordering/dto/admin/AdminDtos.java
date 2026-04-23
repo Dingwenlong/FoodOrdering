@@ -111,7 +111,51 @@ public final class AdminDtos {
             @Schema(description = "管理员ID") String id,
             @Schema(description = "用户名") String username,
             @Schema(description = "显示名称") String displayName,
-            @Schema(description = "角色名称") String roleName
+            @Schema(description = "角色名称") String roleName,
+            @Schema(description = "权限列表") List<String> permissions
+    ) {
+    }
+
+    @Schema(description = "管理员账号视图")
+    public record AdminAccountView(
+            @Schema(description = "管理员ID") String id,
+            @Schema(description = "用户名") String username,
+            @Schema(description = "显示名称") String displayName,
+            @Schema(description = "角色名称") String roleName,
+            @Schema(description = "权限列表") List<String> permissions,
+            @Schema(description = "账号状态") String status,
+            @Schema(description = "创建时间") String createdAt,
+            @Schema(description = "更新时间") String updatedAt
+    ) {
+    }
+
+    @Schema(description = "管理员账号创建/更新请求")
+    public record AdminAccountUpsertRequest(
+            @Schema(description = "用户名") String username,
+            @Schema(description = "密码") String password,
+            @Schema(description = "显示名称") String displayName,
+            @Schema(description = "角色名称") String roleName,
+            @Schema(description = "是否启用") Boolean enabled
+    ) {
+    }
+
+    @Schema(description = "管理员状态更新请求")
+    public record AdminAccountStatusUpdateRequest(
+            @Schema(description = "状态") String status,
+            @Schema(description = "是否启用") Boolean enabled
+    ) {
+    }
+
+    @Schema(description = "重置管理员密码请求")
+    public record AdminPasswordResetRequest(
+            @Schema(description = "新密码") String password
+    ) {
+    }
+
+    @Schema(description = "角色视图")
+    public record RoleView(
+            @Schema(description = "角色名称") String name,
+            @Schema(description = "权限列表") List<String> permissions
     ) {
     }
 
@@ -182,7 +226,10 @@ public final class AdminDtos {
             @Schema(description = "菜品名称") String name,
             @Schema(description = "价格（分）") int priceFen,
             @Schema(description = "是否上架") boolean onSale,
-            @Schema(description = "是否售罄") boolean soldOut
+            @Schema(description = "是否售罄") boolean soldOut,
+            @Schema(description = "菜品描述") String description,
+            @Schema(description = "图片地址") String image,
+            @Schema(description = "排序权重") int sort
     ) {
     }
 
@@ -211,17 +258,62 @@ public final class AdminDtos {
     ) {
     }
 
+    @Schema(description = "订单用户摘要")
+    public record OrderUserView(
+            @Schema(description = "用户ID") String id,
+            @Schema(description = "昵称") String nickname,
+            @Schema(description = "手机号") String phone
+    ) {
+    }
+
+    @Schema(description = "订单支付摘要")
+    public record PaymentView(
+            @Schema(description = "支付ID") String id,
+            @Schema(description = "支付单号") String paymentNo,
+            @Schema(description = "支付方式") String method,
+            @Schema(description = "支付状态") String status,
+            @Schema(description = "支付金额") MoneyView amount,
+            @Schema(description = "第三方交易号") String transactionId,
+            @Schema(description = "支付时间") String paidAt,
+            @Schema(description = "创建时间") String createdAt
+    ) {
+    }
+
     @Schema(description = "订单详情视图")
     public record OrderView(
             @Schema(description = "订单ID") String id,
+            @Schema(description = "订单编号") String orderNo,
             @Schema(description = "门店ID") String storeId,
             @Schema(description = "桌号ID") String tableId,
             @Schema(description = "桌号名称") String tableName,
             @Schema(description = "订单状态") String status,
             @Schema(description = "商品明细列表") List<OrderItemView> items,
             @Schema(description = "订单总额") MoneyView totalPrice,
+            @Schema(description = "用户摘要") OrderUserView user,
+            @Schema(description = "支付记录") List<PaymentView> payments,
             @Schema(description = "用户备注") String remark,
-            @Schema(description = "创建时间") String createdAt
+            @Schema(description = "创建时间") String createdAt,
+            @Schema(description = "完成时间") String completedAt,
+            @Schema(description = "更新时间") String updatedAt
+    ) {
+    }
+
+    @Schema(description = "后台统计摘要")
+    public record StatsSummaryView(
+            @Schema(description = "总营业额") MoneyView revenue,
+            @Schema(description = "订单总数") long orderCount,
+            @Schema(description = "已支付订单数") long paidOrderCount,
+            @Schema(description = "客单价") MoneyView averageOrderValue,
+            @Schema(description = "支付成功率") double paymentSuccessRate
+    ) {
+    }
+
+    @Schema(description = "后台统计趋势")
+    public record StatsTrendPointView(
+            @Schema(description = "日期") String date,
+            @Schema(description = "营业额") MoneyView revenue,
+            @Schema(description = "订单数") long orderCount,
+            @Schema(description = "已支付订单数") long paidOrderCount
     ) {
     }
 
@@ -230,6 +322,51 @@ public final class AdminDtos {
             @Schema(description = "菜品ID") String dishId,
             @Schema(description = "菜品名称") String dishName,
             @Schema(description = "累计销量") long soldQty
+    ) {
+    }
+
+    @Schema(description = "系统设置视图")
+    public record SystemSettingsView(
+            @Schema(description = "门店ID") String storeId,
+            @Schema(description = "门店名称") String storeName,
+            @Schema(description = "营业开始时间") String openTime,
+            @Schema(description = "营业结束时间") String closeTime,
+            @Schema(description = "是否自动接单") boolean autoAccept,
+            @Schema(description = "是否启用打印") boolean printerEnabled
+    ) {
+    }
+
+    @Schema(description = "系统设置更新请求")
+    public record SystemSettingsUpdateRequest(
+            @Schema(description = "门店ID") String storeId,
+            @Schema(description = "门店名称") String storeName,
+            @Schema(description = "营业开始时间") String openTime,
+            @Schema(description = "营业结束时间") String closeTime,
+            @Schema(description = "是否自动接单") Boolean autoAccept,
+            @Schema(description = "是否启用打印") Boolean printerEnabled
+    ) {
+    }
+
+    @Schema(description = "桌码内容视图")
+    public record QrPayloadView(
+            @Schema(description = "桌台ID") String tableId,
+            @Schema(description = "桌台编号") String tableNo,
+            @Schema(description = "二维码内容") String payload
+    ) {
+    }
+
+    @Schema(description = "审计日志视图")
+    public record AuditLogView(
+            @Schema(description = "日志ID") String id,
+            @Schema(description = "管理员ID") String adminId,
+            @Schema(description = "管理员名称") String adminName,
+            @Schema(description = "动作") String action,
+            @Schema(description = "资源类型") String resourceType,
+            @Schema(description = "资源ID") String resourceId,
+            @Schema(description = "请求路径") String requestPath,
+            @Schema(description = "结果") String result,
+            @Schema(description = "消息") String message,
+            @Schema(description = "创建时间") String createdAt
     ) {
     }
 

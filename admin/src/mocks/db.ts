@@ -1,6 +1,8 @@
 import type {
   AdminUser,
+  AdminAccount,
   AppUser,
+  AuditLog,
   Category,
   Comment,
   Dish,
@@ -10,6 +12,8 @@ import type {
   Order,
   OrderStatus,
   SupportTicket,
+  SystemSettings,
+  Table,
 } from '@/types'
 
 function nowIso(): string {
@@ -25,6 +29,54 @@ export const mockAdminUser: AdminUser = {
   username: 'admin',
   displayName: '店长',
   roleName: '超级管理员',
+  permissions: [
+    'ADMIN_USER_MANAGE',
+    'AUDIT_LOG_VIEW',
+    'FEEDBACK_STATUS_UPDATE',
+    'MENU_MANAGE',
+    'NOTICE_MANAGE',
+    'ORDER_STATUS_UPDATE',
+    'SETTINGS_MANAGE',
+    'STATS_VIEW',
+    'SUPPORT_TICKET_STATUS_UPDATE',
+    'TABLE_MANAGE',
+    'USER_STATUS_UPDATE',
+  ],
+}
+
+export const mockAdminAccounts: AdminAccount[] = [
+  {
+    ...mockAdminUser,
+    status: 'ACTIVE',
+    createdAt: '2026-03-01T08:00:00.000Z',
+    updatedAt: nowIso(),
+  },
+  {
+    id: 'admin_2',
+    username: 'manager',
+    displayName: '值班店长',
+    roleName: '店长',
+    permissions: ['MENU_MANAGE', 'NOTICE_MANAGE', 'ORDER_STATUS_UPDATE', 'SETTINGS_MANAGE', 'STATS_VIEW', 'TABLE_MANAGE', 'USER_STATUS_UPDATE'],
+    status: 'ACTIVE',
+    createdAt: '2026-03-02T08:00:00.000Z',
+    updatedAt: nowIso(),
+  },
+]
+
+export const mockRoles = [
+  { name: '超级管理员', permissions: mockAdminUser.permissions },
+  { name: '店长', permissions: ['MENU_MANAGE', 'NOTICE_MANAGE', 'ORDER_STATUS_UPDATE', 'SETTINGS_MANAGE', 'STATS_VIEW', 'TABLE_MANAGE', 'USER_STATUS_UPDATE'] },
+  { name: '运营', permissions: ['MENU_MANAGE', 'NOTICE_MANAGE', 'ORDER_STATUS_UPDATE', 'STATS_VIEW', 'TABLE_MANAGE'] },
+  { name: '客服', permissions: ['FEEDBACK_STATUS_UPDATE', 'SUPPORT_TICKET_STATUS_UPDATE'] },
+]
+
+export const mockSystemSettings: SystemSettings = {
+  storeId: 'store_1',
+  storeName: 'FoodOrdering 示例门店',
+  openTime: '09:00',
+  closeTime: '22:00',
+  autoAccept: true,
+  printerEnabled: false,
 }
 
 export const mockNotices: Notice[] = [
@@ -78,6 +130,9 @@ export const mockDishes: Dish[] = [
     priceFen: 2800,
     onSale: true,
     soldOut: false,
+    description: '大块牛肉配秘制酱汁',
+    image: '/images/beef-rice.jpg',
+    sort: 10,
   },
   {
     id: 'd_2',
@@ -86,6 +141,9 @@ export const mockDishes: Dish[] = [
     priceFen: 1600,
     onSale: true,
     soldOut: false,
+    description: '外脆里嫩，适合加购',
+    image: '/images/chicken-wing.jpg',
+    sort: 20,
   },
   {
     id: 'd_3',
@@ -94,7 +152,17 @@ export const mockDishes: Dish[] = [
     priceFen: 1200,
     onSale: true,
     soldOut: true,
+    description: '冷萃茶底，清爽解腻',
+    image: '/images/lemon-tea.jpg',
+    sort: 30,
   },
+]
+
+export const mockTables: Table[] = [
+  { id: '1', tableNo: 'A01', capacity: 4, status: 'IDLE', location: '靠窗', area: '一楼大厅', createdAt: '2026-03-01T08:00:00.000Z', updatedAt: nowIso() },
+  { id: '2', tableNo: 'A02', capacity: 6, status: 'OCCUPIED', location: '入口右侧', area: '一楼大厅', createdAt: '2026-03-01T08:00:00.000Z', updatedAt: nowIso() },
+  { id: '3', tableNo: 'B01', capacity: 8, status: 'IDLE', location: '包间1号', area: '二楼包间', createdAt: '2026-03-01T08:00:00.000Z', updatedAt: nowIso() },
+  { id: '4', tableNo: 'B02', capacity: 4, status: 'MAINTENANCE', location: '包间2号', area: '二楼包间', createdAt: '2026-03-01T08:00:00.000Z', updatedAt: nowIso() },
 ]
 
 function calcTotal(items: Order['items']): Order['totalPrice'] {
@@ -105,6 +173,7 @@ function calcTotal(items: Order['items']): Order['totalPrice'] {
 export const mockOrders: Order[] = [
   {
     id: 'o_10001',
+    orderNo: 'OD202603010001',
     storeId: 'store_1',
     tableId: 't_8',
     tableName: '8号桌',
@@ -124,11 +193,14 @@ export const mockOrders: Order[] = [
       },
     ],
     totalPrice: money(0),
+    user: { id: 'u_1', nickname: '小张', phone: '138****0001' },
+    payments: [{ id: 'p_1', paymentNo: 'PAY202603010001', method: 'WECHAT', status: 'SUCCESS', amount: money(4400), transactionId: 'wx_tx_10001', paidAt: '2026-03-01T07:31:00.000Z', createdAt: '2026-03-01T07:30:30.000Z' }],
     remark: '少辣',
     createdAt: '2026-03-01T07:30:00.000Z',
   },
   {
     id: 'o_10002',
+    orderNo: 'OD202603010002',
     storeId: 'store_1',
     tableId: 't_3',
     tableName: '3号桌',
@@ -142,10 +214,13 @@ export const mockOrders: Order[] = [
       },
     ],
     totalPrice: money(0),
+    user: { id: 'u_2', nickname: '小李' },
+    payments: [{ id: 'p_2', paymentNo: 'PAY202603010002', method: 'WECHAT', status: 'SUCCESS', amount: money(5600), transactionId: 'wx_tx_10002', paidAt: '2026-03-01T06:51:00.000Z', createdAt: '2026-03-01T06:50:30.000Z' }],
     createdAt: '2026-03-01T06:50:00.000Z',
   },
   {
     id: 'o_10003',
+    orderNo: 'OD202602280003',
     storeId: 'store_1',
     tableId: 't_1',
     tableName: '1号桌',
@@ -159,7 +234,10 @@ export const mockOrders: Order[] = [
       },
     ],
     totalPrice: money(0),
+    user: { id: 'u_2', nickname: '小李' },
+    payments: [{ id: 'p_3', paymentNo: 'PAY202602280003', method: 'WECHAT', status: 'SUCCESS', amount: money(2400), transactionId: 'wx_tx_10003', paidAt: '2026-02-28T11:16:00.000Z', createdAt: '2026-02-28T11:15:30.000Z' }],
     createdAt: '2026-02-28T11:15:00.000Z',
+    completedAt: '2026-02-28T11:45:00.000Z',
   },
 ]
 
@@ -202,6 +280,19 @@ export const mockSupportTickets: SupportTicket[] = [
     topic: '支付失败如何处理？',
     lastMessageAt: '2026-03-01T07:40:00.000Z',
     status: 'OPEN',
+  },
+]
+
+export const mockAuditLogs: AuditLog[] = [
+  {
+    id: 'log_1',
+    adminId: 'admin_1',
+    adminName: '店长',
+    action: 'PUT',
+    resourceType: 'settings',
+    requestPath: '/v1/admin/settings',
+    result: 'SUCCESS',
+    createdAt: nowIso(),
   },
 ]
 
@@ -261,6 +352,9 @@ export function mockCreateDish(payload: {
   priceFen: number
   onSale: boolean
   soldOut: boolean
+  description?: string
+  image?: string
+  sort?: number
 }): Dish {
   const dish: Dish = {
     id: idSeq('d_', mockDishes),
@@ -269,6 +363,9 @@ export function mockCreateDish(payload: {
     priceFen: payload.priceFen,
     onSale: payload.onSale,
     soldOut: payload.soldOut,
+    description: payload.description,
+    image: payload.image,
+    sort: payload.sort ?? 0,
   }
   mockDishes.unshift(dish)
   return dish
@@ -281,9 +378,13 @@ export function mockUpdateDish(payload: {
   priceFen: number
   onSale: boolean
   soldOut: boolean
+  description?: string
+  image?: string
+  sort?: number
 }): Dish {
   const idx = mockDishes.findIndex((d) => d.id === payload.dishId)
   if (idx < 0) throw new Error('菜品不存在')
+  const current = mockDishes[idx]
   const next: Dish = {
     id: payload.dishId,
     categoryId: payload.categoryId,
@@ -291,6 +392,9 @@ export function mockUpdateDish(payload: {
     priceFen: payload.priceFen,
     onSale: payload.onSale,
     soldOut: payload.soldOut,
+    description: payload.description,
+    image: payload.image,
+    sort: payload.sort ?? current.sort,
   }
   mockDishes[idx] = next
   return next

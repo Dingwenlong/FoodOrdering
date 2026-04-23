@@ -1,141 +1,86 @@
 <script setup lang="ts">
-import * as echarts from 'echarts'
-import { onMounted, ref, watch } from 'vue'
-import Card from '../components/Card.vue'
+import { computed, onMounted, ref } from 'vue'
+import PageHeader from '@/components/PageHeader.vue'
+import { api } from '@/lib/api'
+import type { DishSales, StatsSummary, StatsTrendPoint } from '@/types'
 
-const chartRef = ref<HTMLElement>()
-let chartInstance: echarts.ECharts | null = null
+const loading = ref(false)
+const error = ref('')
+const today = new Date().toISOString().slice(0, 10)
+const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10)
+const range = ref({ from: weekAgo, to: today })
+const summary = ref<StatsSummary | null>(null)
+const trend = ref<StatsTrendPoint[]>([])
+const dishSales = ref<DishSales[]>([])
 
-const initChart = () => {
-  if (!chartRef.value) return
+const maxRevenue = computed(() => Math.max(1, ...trend.value.map((p) => p.revenue.amountFen)))
 
-  chartInstance = echarts.init(chartRef.value, 'dark', {
-    renderer: 'svg',
-    useDirtyRect: true
-  })
-
-  // 深色玻璃态 ECharts 主题配置
-  const option = {
-    backgroundColor: 'transparent',
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      borderColor: 'rgba(255, 255, 255, 0.1)',
-      textStyle: {
-        color: '#fff'
-      }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true,
-      borderColor: 'transparent'
-    },
-    xAxis: {
-      type: 'category',
-      data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
-      axisLabel: { color: 'rgba(255,255,255,0.6)' }
-    },
-    yAxis: {
-      type: 'value',
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
-      axisLabel: { color: 'rgba(255,255,255,0.6)' }
-    },
-    series: [
-      {
-        name: '销售额',
-        type: 'line',
-        smooth: true,
-        data: [120, 132, 101, 134, 90, 230, 210],
-        itemStyle: {
-          color: '#22d3ee' // Cyan-400
-        },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(34, 211, 238, 0.5)' },
-            { offset: 1, color: 'rgba(34, 211, 238, 0)' }
-          ])
-        },
-        lineStyle: {
-          width: 3,
-          shadowColor: 'rgba(34, 211, 238, 0.5)',
-          shadowBlur: 10
-        }
-      },
-      {
-        name: '订单量',
-        type: 'bar',
-        data: [220, 182, 191, 234, 290, 330, 310],
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#a855f7' }, // Purple-500
-            { offset: 1, color: '#6366f1' }  // Indigo-500
-          ]),
-          borderRadius: [4, 4, 0, 0]
-        }
-      }
-    ]
-  }
-
-  chartInstance.setOption(option)
+function money(amountFen?: number) {
+  return `¥${((amountFen ?? 0) / 100).toFixed(2)}`
 }
 
-onMounted(() => {
-  initChart()
-  window.addEventListener('resize', () => chartInstance?.resize())
-})
+async function loadStats() {
+  loading.value = true
+  error.value = ''
+  try {
+    const params = { from: range.value.from || undefined, to: range.value.to || undefined }
+    const [summaryRes, trendRes, dishRes] = await Promise.all([
+      api.getStatsSummary(params),
+      api.getStatsTrend(params),
+      api.getDishSales(),
+    ])
+    summary.value = summaryRes
+    trend.value = trendRes
+    dishSales.value = dishRes.slice(0, 8)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '统计数据加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadStats)
 </script>
 
 <template>
   <div class="space-y-6">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card>
-        <div class="text-white/60 text-sm uppercase tracking-wider font-medium mb-1">
-          总销售额
-        </div>
-        <div class="text-3xl font-bold text-white mb-2">
-          ¥ 12,580
-        </div>
-        <div class="text-cyan-400 text-sm flex items-center">
-          <span class="bg-cyan-400/10 px-1.5 py-0.5 rounded mr-2">+15%</span>
-          <span>较上周</span>
-        </div>
-      </Card>
-      <Card>
-        <div class="text-white/60 text-sm uppercase tracking-wider font-medium mb-1">
-          总订单量
-        </div>
-        <div class="text-3xl font-bold text-white mb-2">
-          856
-        </div>
-        <div class="text-purple-400 text-sm flex items-center">
-          <span class="bg-purple-400/10 px-1.5 py-0.5 rounded mr-2">+8%</span>
-          <span>较上周</span>
-        </div>
-      </Card>
-      <Card>
-        <div class="text-white/60 text-sm uppercase tracking-wider font-medium mb-1">
-          当前活跃用户
-        </div>
-        <div class="text-3xl font-bold text-white mb-2">
-          3,240
-        </div>
-        <div class="text-white/40 text-sm">
-          刚刚更新
-        </div>
-      </Card>
-    </div>
+    <PageHeader title="数据统计" description="按日期查看营收、订单、支付成功率和菜品销量。" />
 
-    <Card
-      title="销售趋势"
-      class="h-96"
-    >
-      <div
-        ref="chartRef"
-        class="w-full h-full"
-      />
-    </Card>
+    <section class="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <label class="grid gap-1 text-sm text-white/60">开始日期<input v-model="range.from" class="input" type="date"></label>
+        <label class="grid gap-1 text-sm text-white/60">结束日期<input v-model="range.to" class="input" type="date"></label>
+        <button class="btn-primary" :disabled="loading" @click="loadStats">刷新</button>
+      </div>
+      <p v-if="error" class="mt-3 text-sm text-rose-300">{{ error }}</p>
+    </section>
+
+    <section class="grid gap-4 md:grid-cols-4">
+      <div class="stat-card"><span>营业额</span><strong>{{ money(summary?.revenue.amountFen) }}</strong></div>
+      <div class="stat-card"><span>订单数</span><strong>{{ summary?.orderCount ?? 0 }}</strong></div>
+      <div class="stat-card"><span>客单价</span><strong>{{ money(summary?.averageOrderValue.amountFen) }}</strong></div>
+      <div class="stat-card"><span>支付成功率</span><strong>{{ (((summary?.paymentSuccessRate ?? 0) * 100).toFixed(1)) }}%</strong></div>
+    </section>
+
+    <section class="grid gap-4 xl:grid-cols-[1fr_360px]">
+      <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+        <h2 class="mb-4 text-lg font-semibold">营收趋势</h2>
+        <div class="flex h-72 items-end gap-3">
+          <div v-for="point in trend" :key="point.date" class="flex min-w-0 flex-1 flex-col items-center gap-2">
+            <div class="w-full rounded-t-lg bg-cyan-400/70" :style="{ height: `${Math.max(8, point.revenue.amountFen / maxRevenue * 220)}px` }" />
+            <span class="truncate text-xs text-white/45">{{ point.date.slice(5) }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+        <h2 class="mb-4 text-lg font-semibold">热销菜品</h2>
+        <div class="space-y-3">
+          <div v-for="dish in dishSales" :key="dish.dishId" class="flex items-center justify-between rounded-xl bg-black/20 p-3">
+            <span>{{ dish.dishName }}</span>
+            <strong>{{ dish.soldQty }}</strong>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>

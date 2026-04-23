@@ -1,0 +1,128 @@
+.container {
+  min-height: 100vh;
+  padding: 32rpx;
+  color: #fff;
+}
+
+.hero {
+  padding: 22rpx 0 26rpx;
+}
+
+.eyebrow {
+  display: block;
+  color: rgba(103, 232, 249, 0.78);
+  font-size: 22rpx;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.title {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 48rpx;
+  font-weight: 900;
+}
+
+.subtitle {
+  display: block;
+  margin-top: 12rpx;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.panel {
+  padding: 26rpx;
+  margin-bottom: 28rpx;
+}
+
+.panel-title,
+.section-title {
+  font-size: 30rpx;
+  font-weight: 800;
+  margin-bottom: 18rpx;
+}
+
+.field,
+.textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1rpx solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 18rpx;
+  padding: 0 22rpx;
+  margin-bottom: 18rpx;
+  font-size: 26rpx;
+}
+
+.field {
+  height: 78rpx;
+}
+
+.textarea {
+  height: 170rpx;
+  padding-top: 20rpx;
+  line-height: 1.5;
+}
+
+.submit-btn {
+  height: 82rpx;
+  line-height: 82rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, #22d3ee, #34d399);
+  color: #07221f;
+  font-weight: 900;
+  font-size: 28rpx;
+}
+
+.ticket-card {
+  padding: 24rpx;
+  margin-bottom: 18rpx;
+}
+
+.ticket-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.ticket-topic {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.status {
+  flex-shrink: 0;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+}
+
+.status-open {
+  color: #fcd34d;
+  border-color: rgba(252, 211, 77, 0.55);
+}
+
+.status-closed {
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.55);
+}
+
+.ticket-meta,
+.loading-state,
+.empty-state,
+.error-state {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 24rpx;
+  margin-top: 14rpx;
+}
+
+.error-state {
+  color: #fecaca;
+  margin-bottom: 18rpx;
+}

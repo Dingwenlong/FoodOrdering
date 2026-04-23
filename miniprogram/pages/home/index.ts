@@ -84,4 +84,8 @@ Page({
   goOrders() {
     wx.navigateTo({ url: '/pages/orders/index' });
   },
+
+  goSupport() {
+    wx.navigateTo({ url: '/pages/support/index' });
+  },
 });

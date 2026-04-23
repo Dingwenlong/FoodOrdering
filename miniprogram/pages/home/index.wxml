@@ -7,8 +7,8 @@
       <text class="store-name">{{storeName}}</text>
       <text class="table-info" wx:if="{{tableName}}">{{tableName}} 桌</text>
     </view>
-    <button class="cs-btn glass-card" open-type="contact">
-      <text class="cs-icon">💬</text> 客服
+    <button class="cs-btn glass-card" bindtap="goSupport">
+      <text class="cs-icon">客服</text>
     </button>
   </view>
 
@@ -70,6 +70,7 @@
   <view class="footer">
     <view class="footer-actions">
       <button class="ghost-btn" bindtap="goOrders">我的订单</button>
+      <button class="ghost-btn" bindtap="goSupport">售后</button>
       <button class="order-btn neon-btn" bindtap="goMenu">立即点餐</button>
     </view>
   </view>

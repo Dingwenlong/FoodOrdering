@@ -7,13 +7,19 @@ import type {
   Dish,
   Order,
   PrepayPayload,
+  SupportTicket,
+  SupportTicketDetail,
+  SupportTicketMessage,
   UrgeOrderResult,
+  WechatLoginResult,
 } from '../types/index';
 
 const MOCK_FLAG_KEY = 'MP_USE_MOCK';
 const API_BASE_URL_KEY = 'MP_API_BASE_URL';
 const MOCK_ORDERS_KEY = 'MP_MOCK_ORDERS';
 const MOCK_COMMENTS_KEY = 'MP_MOCK_COMMENTS';
+const MOCK_SUPPORT_TICKETS_KEY = 'MP_MOCK_SUPPORT_TICKETS';
+const MOCK_SUPPORT_MESSAGES_KEY = 'MP_MOCK_SUPPORT_MESSAGES';
 
 const BASE_URL = (wx.getStorageSync(API_BASE_URL_KEY) as string) || 'http://localhost:8080';
 const API_PREFIX = '/api/v1';
@@ -23,6 +29,8 @@ export const STORAGE_KEYS = {
   cart: 'cart',
   cartRemark: 'cartRemark',
   lastOrderId: 'lastOrderId',
+  clientToken: 'clientToken',
+  clientUser: 'clientUser',
 };
 
 type ApiEnvelope<T> = {
@@ -46,6 +54,8 @@ type UrlInfo = {
 const mockState = {
   orders: initMockOrders(),
   comments: initMockComments(),
+  supportTickets: initMockSupportTickets(),
+  supportMessages: initMockSupportMessages(),
 };
 
 function cloneOrders(list: Order[]): Order[] {
@@ -79,12 +89,59 @@ function initMockComments(): Array<Record<string, any>> {
   return seed;
 }
 
+function initMockSupportTickets(): SupportTicket[] {
+  const cached = wx.getStorageSync(MOCK_SUPPORT_TICKETS_KEY);
+  if (Array.isArray(cached) && cached.length > 0) {
+    return cached as SupportTicket[];
+  }
+  const now = new Date().toISOString();
+  const seed: SupportTicket[] = [
+    { id: 'st_1', nickname: '匿名用户', topic: '支付失败如何处理？', lastMessageAt: now, status: 'OPEN' },
+  ];
+  wx.setStorageSync(MOCK_SUPPORT_TICKETS_KEY, seed);
+  return seed;
+}
+
+function initMockSupportMessages(): SupportTicketMessage[] {
+  const cached = wx.getStorageSync(MOCK_SUPPORT_MESSAGES_KEY);
+  if (Array.isArray(cached) && cached.length > 0) {
+    return cached as SupportTicketMessage[];
+  }
+  const now = new Date().toISOString();
+  const seed: SupportTicketMessage[] = [
+    {
+      id: 'stm_1',
+      ticketId: 'st_1',
+      senderType: 'USER',
+      senderId: 'mock_user',
+      senderName: '匿名用户',
+      content: '支付时提示失败，但订单还在待支付。',
+      isRead: false,
+      createdAt: now,
+    },
+    {
+      id: 'stm_2',
+      ticketId: 'st_1',
+      senderType: 'ADMIN',
+      senderId: 'admin',
+      senderName: '店长',
+      content: '您好，可以重新发起支付；如果仍失败，我们会帮您核查。',
+      isRead: false,
+      createdAt: now,
+    },
+  ];
+  wx.setStorageSync(MOCK_SUPPORT_MESSAGES_KEY, seed);
+  return seed;
+}
+
 function persistMockState() {
   wx.setStorageSync(MOCK_ORDERS_KEY, cloneOrders(mockState.orders));
   wx.setStorageSync(MOCK_COMMENTS_KEY, cloneComments(mockState.comments));
+  wx.setStorageSync(MOCK_SUPPORT_TICKETS_KEY, mockState.supportTickets.map((item) => ({ ...item })));
+  wx.setStorageSync(MOCK_SUPPORT_MESSAGES_KEY, mockState.supportMessages.map((item) => ({ ...item })));
 }
 
-function shouldUseMock(): boolean {
+export function shouldUseMock(): boolean {
   return wx.getStorageSync(MOCK_FLAG_KEY) !== false;
 }
 
@@ -147,6 +204,41 @@ function resolveUrl(rawUrl: string): string {
     return `${BASE_URL}${API_PREFIX}${rawUrl}`;
   }
   return `${BASE_URL}${API_PREFIX}/${rawUrl}`;
+}
+
+function wxLogin(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    wx.login({
+      success: (res) => {
+        if (res.code) {
+          resolve(res.code);
+          return;
+        }
+        reject(new Error('微信登录未返回 code'));
+      },
+      fail: (err) => reject(new Error(err.errMsg || '微信登录失败')),
+    });
+  });
+}
+
+async function ensureClientToken(): Promise<string> {
+  const cached = wx.getStorageSync(STORAGE_KEYS.clientToken);
+  if (cached && typeof cached === 'string') {
+    return cached;
+  }
+
+  const code = await wxLogin();
+  const result = await rawRequest<WechatLoginResult>({
+    url: '/auth/wechat-login',
+    method: 'POST',
+    data: { code },
+  });
+  if (!result.data?.token) {
+    throw new Error('登录态获取失败');
+  }
+  wx.setStorageSync(STORAGE_KEYS.clientToken, result.data.token);
+  wx.setStorageSync(STORAGE_KEYS.clientUser, result.data.user);
+  return result.data.token;
 }
 
 function getMethod(options: WechatMiniprogram.RequestOption): string {
@@ -349,6 +441,16 @@ async function handleMockRequest<T = any>(options: WechatMiniprogram.RequestOpti
     };
     persistMockState();
     result = mockState.orders[index];
+  } else if (path === '/auth/wechat-login' && method === 'POST') {
+    result = {
+      token: 'mock_client_token',
+      user: {
+        id: 'mock_user',
+        nickname: '匿名用户',
+        avatar: '',
+        openid: 'mock_openid',
+      },
+    } as WechatLoginResult;
   } else if (path === '/notices' && method === 'GET') {
     result = mockNotices;
   } else if (path === '/comments' && method === 'GET') {
@@ -388,6 +490,80 @@ async function handleMockRequest<T = any>(options: WechatMiniprogram.RequestOpti
     mockState.comments.unshift(newComment);
     persistMockState();
     result = newComment;
+  } else if (path === '/support/tickets' && method === 'GET') {
+    result = [...mockState.supportTickets].sort((a, b) => String(b.lastMessageAt).localeCompare(String(a.lastMessageAt)));
+  } else if (path === '/support/tickets' && method === 'POST') {
+    const topic = String(body.topic || '').trim();
+    const content = String(body.content || '').trim();
+    if (!topic) throw new Error('问题主题不能为空');
+    if (!content) throw new Error('消息内容不能为空');
+    const now = new Date().toISOString();
+    const ticket: SupportTicketDetail = {
+      id: `st_${Date.now()}`,
+      nickname: '匿名用户',
+      topic,
+      lastMessageAt: now,
+      status: 'OPEN',
+      createdAt: now,
+      updatedAt: now,
+    };
+    mockState.supportTickets.unshift(ticket);
+    mockState.supportMessages.push({
+      id: `stm_${Date.now()}`,
+      ticketId: ticket.id,
+      senderType: 'USER',
+      senderId: 'mock_user',
+      senderName: '匿名用户',
+      content,
+      isRead: false,
+      createdAt: now,
+    });
+    persistMockState();
+    result = ticket;
+  } else if (/^\/support\/tickets\/[^/]+$/.test(path) && method === 'GET') {
+    const ticketId = path.split('/').pop() || '';
+    const ticket = mockState.supportTickets.find((item) => item.id === ticketId);
+    if (!ticket) throw new Error('工单不存在');
+    result = {
+      ...ticket,
+      createdAt: ticket.lastMessageAt,
+      updatedAt: ticket.lastMessageAt,
+    } as SupportTicketDetail;
+  } else if (/^\/support\/tickets\/[^/]+\/messages$/.test(path) && method === 'GET') {
+    const segments = path.split('/');
+    const ticketId = segments[segments.length - 2] || '';
+    const list = mockState.supportMessages
+      .filter((item) => item.ticketId === ticketId)
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    result = {
+      list,
+      total: list.length,
+      page: Number(urlInfo.query.page || 1),
+      pageSize: Number(urlInfo.query.pageSize || 20),
+    };
+  } else if (/^\/support\/tickets\/[^/]+\/messages$/.test(path) && method === 'POST') {
+    const segments = path.split('/');
+    const ticketId = segments[segments.length - 2] || '';
+    const ticket = mockState.supportTickets.find((item) => item.id === ticketId);
+    if (!ticket) throw new Error('工单不存在');
+    if (ticket.status !== 'OPEN') throw new Error('工单已关闭，无法继续发送消息');
+    const content = String(body.content || '').trim();
+    if (!content) throw new Error('消息内容不能为空');
+    const now = new Date().toISOString();
+    const message: SupportTicketMessage = {
+      id: `stm_${Date.now()}`,
+      ticketId,
+      senderType: 'USER',
+      senderId: 'mock_user',
+      senderName: '匿名用户',
+      content,
+      isRead: false,
+      createdAt: now,
+    };
+    mockState.supportMessages.push(message);
+    ticket.lastMessageAt = now;
+    persistMockState();
+    result = message;
   } else {
     throw new Error(`Mock route not found: ${method} ${path}`);
   }
@@ -401,18 +577,38 @@ export const request = async <T = any>(options: WechatMiniprogram.RequestOption)
     return handleMockRequest<T>(options);
   }
 
+  return rawRequest<T>(options, true);
+};
+
+async function rawRequest<T = any>(
+  options: WechatMiniprogram.RequestOption,
+  withAuth = false,
+  retried = false,
+): Promise<RequestResult<T>> {
   const url = resolveUrl(String(options.url || '/'));
   const method = getMethod(options);
   const path = normalizeApiPath(parseUrl(String(options.url || '/')).path);
+  const token = withAuth && path !== '/auth/wechat-login' ? await ensureClientToken() : '';
 
   return new Promise((resolve, reject) => {
+    const header = {
+      ...(options.header || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
     wx.request({
       ...options,
-      method,
+      method: method as WechatMiniprogram.RequestOption['method'],
       url,
+      header,
       success: (res) => {
         const statusCode = res.statusCode || 500;
         if (statusCode < 200 || statusCode >= 300) {
+          if (statusCode === 401 && withAuth && !retried) {
+            wx.removeStorageSync(STORAGE_KEYS.clientToken);
+            wx.removeStorageSync(STORAGE_KEYS.clientUser);
+            rawRequest<T>(options, withAuth, true).then(resolve).catch(reject);
+            return;
+          }
           reject(new Error(resolveErrorMessage(res.data, `HTTP ${statusCode}`)));
           return;
         }
@@ -439,4 +635,4 @@ export const request = async <T = any>(options: WechatMiniprogram.RequestOption)
       fail: (err) => reject(err),
     });
   });
-};
+}

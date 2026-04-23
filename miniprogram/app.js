@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const request_1 = require("./utils/request");
 // app.ts
 App({
     globalData: {},
@@ -8,13 +9,8 @@ App({
         const logs = wx.getStorageSync('logs') || [];
         logs.unshift(Date.now());
         wx.setStorageSync('logs', logs);
-        // 登录
-        wx.login({
-            success: res => {
-                console.log(res.code);
-                // 发送 res.code 到后台换取 openId, sessionKey, unionId
-            },
-        });
-        wx.setStorageSync('MP_USE_MOCK', true);
+        if ((0, request_1.shouldUseMock)()) {
+            wx.setStorageSync(request_1.STORAGE_KEYS.clientToken, 'mock_client_token');
+        }
     },
 });

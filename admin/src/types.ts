@@ -15,14 +15,19 @@ export type OrderItem = {
 
 export type Order = {
   id: ID
+  orderNo?: string
   storeId: ID
   tableId: ID
   tableName: string
   status: OrderStatus
   items: OrderItem[]
   totalPrice: Money
+  user?: { id: ID; nickname: string; phone?: string } | null
+  payments?: Payment[]
   remark?: string
   createdAt: string
+  completedAt?: string | null
+  updatedAt?: string | null
 }
 
 export type AdminUser = {
@@ -30,6 +35,18 @@ export type AdminUser = {
   username: string
   displayName: string
   roleName: string
+  permissions: string[]
+}
+
+export type AdminAccount = AdminUser & {
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt: string
+  updatedAt: string
+}
+
+export type Role = {
+  name: string
+  permissions: string[]
 }
 
 export type Notice = {
@@ -75,6 +92,20 @@ export type Dish = {
   priceFen: number
   onSale: boolean
   soldOut: boolean
+  description?: string
+  image?: string
+  sort: number
+}
+
+export type Payment = {
+  id: ID
+  paymentNo: string
+  method: 'ALIPAY' | 'WECHAT' | 'CASH' | 'UNKNOWN'
+  status: 'PENDING' | 'SUCCESS' | 'FAILED'
+  amount: Money
+  transactionId?: string
+  paidAt?: string
+  createdAt: string
 }
 
 export type DishSales = {
@@ -140,4 +171,47 @@ export type Table = {
   area?: string
   createdAt: string
   updatedAt: string
+}
+
+export type StatsSummary = {
+  revenue: Money
+  orderCount: number
+  paidOrderCount: number
+  averageOrderValue: Money
+  paymentSuccessRate: number
+}
+
+export type StatsTrendPoint = {
+  date: string
+  revenue: Money
+  orderCount: number
+  paidOrderCount: number
+}
+
+export type SystemSettings = {
+  storeId: string
+  storeName: string
+  openTime: string
+  closeTime: string
+  autoAccept: boolean
+  printerEnabled: boolean
+}
+
+export type QrPayload = {
+  tableId: ID
+  tableNo: string
+  payload: string
+}
+
+export type AuditLog = {
+  id: ID
+  adminId?: ID
+  adminName?: string
+  action: string
+  resourceType?: string
+  resourceId?: string
+  requestPath: string
+  result: 'SUCCESS' | 'FAILED'
+  message?: string
+  createdAt: string
 }

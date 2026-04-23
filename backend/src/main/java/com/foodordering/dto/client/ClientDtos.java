@@ -1,5 +1,6 @@
 package com.foodordering.dto.client;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
@@ -23,6 +24,30 @@ public final class ClientDtos {
             @Schema(description = "门店名称") String storeName,
             @Schema(description = "桌号ID") String tableId,
             @Schema(description = "桌号名称") String tableName
+    ) {
+    }
+
+    @Schema(description = "微信登录请求")
+    public record WechatLoginRequest(
+            @Schema(description = "wx.login 返回的临时 code") String code,
+            @Schema(description = "用户昵称") String nickname,
+            @Schema(description = "用户头像") String avatar
+    ) {
+    }
+
+    @Schema(description = "用户端登录响应")
+    public record WechatLoginResponse(
+            @Schema(description = "用户端 JWT") String token,
+            @Schema(description = "用户信息") ClientUserView user
+    ) {
+    }
+
+    @Schema(description = "用户端用户视图")
+    public record ClientUserView(
+            @Schema(description = "用户ID") String id,
+            @Schema(description = "昵称") String nickname,
+            @Schema(description = "头像") String avatar,
+            @Schema(description = "微信 OpenID") String openid
     ) {
     }
 
@@ -140,7 +165,9 @@ public final class ClientDtos {
     public record PrepayResponse(
             @Schema(description = "时间戳") String timeStamp,
             @Schema(description = "随机字符串") String nonceStr,
-            @Schema(description = "预支付包名") String prepayPackage,
+            @JsonProperty("package")
+            @Schema(description = "预支付包名，供 wx.requestPayment 使用") String payPackage,
+            @Schema(description = "预支付包名，兼容旧小程序字段") String prepayPackage,
             @Schema(description = "签名类型") String signType,
             @Schema(description = "支付签名") String paySign
     ) {
@@ -152,6 +179,63 @@ public final class ClientDtos {
             @Schema(description = "当前状态") String status,
             @Schema(description = "提示消息") String message,
             @Schema(description = "催单时间") String urgedAt
+    ) {
+    }
+
+    @Schema(description = "创建客服工单请求")
+    public record CreateSupportTicketRequest(
+            @Schema(description = "问题主题") String topic,
+            @Schema(description = "首条消息内容") String content
+    ) {
+    }
+
+    @Schema(description = "客服工单视图")
+    public record SupportTicketView(
+            @Schema(description = "工单ID") String id,
+            @Schema(description = "昵称") String nickname,
+            @Schema(description = "问题主题") String topic,
+            @Schema(description = "最后消息时间") String lastMessageAt,
+            @Schema(description = "状态：OPEN/CLOSED") String status
+    ) {
+    }
+
+    @Schema(description = "客服工单详情")
+    public record SupportTicketDetailView(
+            @Schema(description = "工单ID") String id,
+            @Schema(description = "昵称") String nickname,
+            @Schema(description = "问题主题") String topic,
+            @Schema(description = "最后消息时间") String lastMessageAt,
+            @Schema(description = "状态：OPEN/CLOSED") String status,
+            @Schema(description = "创建时间") String createdAt,
+            @Schema(description = "更新时间") String updatedAt
+    ) {
+    }
+
+    @Schema(description = "客服消息视图")
+    public record SupportTicketMessageView(
+            @Schema(description = "消息ID") String id,
+            @Schema(description = "工单ID") String ticketId,
+            @Schema(description = "发送者类型：USER/ADMIN") String senderType,
+            @Schema(description = "发送者ID") String senderId,
+            @Schema(description = "发送者名称") String senderName,
+            @Schema(description = "消息内容") String content,
+            @Schema(description = "是否已读") boolean isRead,
+            @Schema(description = "创建时间") String createdAt
+    ) {
+    }
+
+    @Schema(description = "发送客服消息请求")
+    public record SendSupportMessageRequest(
+            @Schema(description = "消息内容") String content
+    ) {
+    }
+
+    @Schema(description = "分页结果")
+    public record PageResult<T>(
+            List<T> list,
+            long total,
+            int page,
+            int pageSize
     ) {
     }
 }

@@ -2,28 +2,35 @@ package com.foodordering.service.admin;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.foodordering.auth.AdminAuthorizationService;
 import com.foodordering.auth.AdminJwtTokenService;
 import com.foodordering.dto.admin.AdminDtos;
+import com.foodordering.entity.AdminOperationLog;
 import com.foodordering.entity.AdminNotice;
 import com.foodordering.entity.AdminUserAccount;
 import com.foodordering.entity.Category;
 import com.foodordering.entity.Dish;
 import com.foodordering.entity.Order;
 import com.foodordering.entity.OrderItem;
+import com.foodordering.entity.Payment;
 import com.foodordering.entity.SupportTicketMessage;
 import com.foodordering.entity.SupportTicketRecord;
+import com.foodordering.entity.SystemSetting;
 import com.foodordering.entity.Table;
 import com.foodordering.entity.User;
 import com.foodordering.entity.UserComment;
 import com.foodordering.entity.UserFeedback;
+import com.foodordering.mapper.AdminOperationLogMapper;
 import com.foodordering.mapper.AdminNoticeMapper;
 import com.foodordering.mapper.AdminUserAccountMapper;
 import com.foodordering.mapper.CategoryMapper;
 import com.foodordering.mapper.DishMapper;
 import com.foodordering.mapper.OrderItemMapper;
 import com.foodordering.mapper.OrderMapper;
+import com.foodordering.mapper.PaymentMapper;
 import com.foodordering.mapper.SupportTicketMessageMapper;
 import com.foodordering.mapper.SupportTicketRecordMapper;
+import com.foodordering.mapper.SystemSettingMapper;
 import com.foodordering.mapper.TableMapper;
 import com.foodordering.mapper.UserCommentMapper;
 import com.foodordering.mapper.UserFeedbackMapper;
@@ -36,6 +43,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -75,6 +83,22 @@ public class AdminService {
     private static final Map<Integer, String> DB_TO_TABLE_STATUS = TABLE_STATUS_TO_DB.entrySet()
             .stream()
             .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+    private static final Map<Integer, String> DB_TO_PAYMENT_STATUS = Map.of(
+            0, "PENDING",
+            1, "SUCCESS",
+            2, "FAILED"
+    );
+    private static final Map<Integer, String> DB_TO_PAYMENT_METHOD = Map.of(
+            1, "ALIPAY",
+            2, "WECHAT",
+            3, "CASH"
+    );
+    private static final String SETTING_STORE_ID = "storeId";
+    private static final String SETTING_STORE_NAME = "storeName";
+    private static final String SETTING_OPEN_TIME = "openTime";
+    private static final String SETTING_CLOSE_TIME = "closeTime";
+    private static final String SETTING_AUTO_ACCEPT = "autoAccept";
+    private static final String SETTING_PRINTER_ENABLED = "printerEnabled";
 
     private final AdminUserAccountMapper adminUserAccountMapper;
     private final AdminNoticeMapper adminNoticeMapper;
@@ -88,7 +112,11 @@ public class AdminService {
     private final UserFeedbackMapper userFeedbackMapper;
     private final SupportTicketRecordMapper supportTicketRecordMapper;
     private final SupportTicketMessageMapper supportTicketMessageMapper;
+    private final PaymentMapper paymentMapper;
+    private final SystemSettingMapper systemSettingMapper;
+    private final AdminOperationLogMapper adminOperationLogMapper;
     private final AdminJwtTokenService adminJwtTokenService;
+    private final AdminAuthorizationService adminAuthorizationService;
     private final PasswordEncoder passwordEncoder;
 
     public AdminService(
@@ -104,7 +132,11 @@ public class AdminService {
             UserFeedbackMapper userFeedbackMapper,
             SupportTicketRecordMapper supportTicketRecordMapper,
             SupportTicketMessageMapper supportTicketMessageMapper,
+            PaymentMapper paymentMapper,
+            SystemSettingMapper systemSettingMapper,
+            AdminOperationLogMapper adminOperationLogMapper,
             AdminJwtTokenService adminJwtTokenService,
+            AdminAuthorizationService adminAuthorizationService,
             PasswordEncoder passwordEncoder
     ) {
         this.adminUserAccountMapper = adminUserAccountMapper;
@@ -119,7 +151,11 @@ public class AdminService {
         this.userFeedbackMapper = userFeedbackMapper;
         this.supportTicketRecordMapper = supportTicketRecordMapper;
         this.supportTicketMessageMapper = supportTicketMessageMapper;
+        this.paymentMapper = paymentMapper;
+        this.systemSettingMapper = systemSettingMapper;
+        this.adminOperationLogMapper = adminOperationLogMapper;
         this.adminJwtTokenService = adminJwtTokenService;
+        this.adminAuthorizationService = adminAuthorizationService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -149,6 +185,144 @@ public class AdminService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "未登录或登录已失效");
         }
         return toAdminUserView(currentAdmin);
+    }
+
+    public List<AdminDtos.RoleView> listRoles() {
+        return adminAuthorizationService.getRoleNames().stream()
+                .map(role -> new AdminDtos.RoleView(role, adminAuthorizationService.getPermissionNames(role)))
+                .toList();
+    }
+
+    public AdminDtos.PageResult<AdminDtos.AdminAccountView> listAdminAccounts(
+            int page,
+            int pageSize,
+            String keyword,
+            String roleName,
+            String status
+    ) {
+        int resolvedPage = Math.max(1, page);
+        int resolvedPageSize = pageSize <= 0 ? 20 : Math.min(200, pageSize);
+        LambdaQueryWrapper<AdminUserAccount> query = new LambdaQueryWrapper<AdminUserAccount>()
+                .orderByDesc(AdminUserAccount::getCreateTime);
+
+        String q = trimToNull(keyword);
+        if (q != null) {
+            Long idKeyword = parseLongOrNull(q);
+            query.and(w -> {
+                w.like(AdminUserAccount::getUsername, q).or().like(AdminUserAccount::getDisplayName, q);
+                if (idKeyword != null) {
+                    w.or().eq(AdminUserAccount::getId, idKeyword);
+                }
+            });
+        }
+        String role = trimToNull(roleName);
+        if (role != null) {
+            query.eq(AdminUserAccount::getRoleName, role);
+        }
+        Integer statusCode = parseEnabledStatusOrNull(status);
+        if (statusCode != null) {
+            query.eq(AdminUserAccount::getStatus, statusCode);
+        }
+
+        Page<AdminUserAccount> pageReq = new Page<>(resolvedPage, resolvedPageSize);
+        Page<AdminUserAccount> pageRes = adminUserAccountMapper.selectPage(pageReq, query);
+        return new AdminDtos.PageResult<>(
+                pageRes.getRecords().stream().map(this::toAdminAccountView).toList(),
+                pageRes.getTotal(),
+                resolvedPage,
+                resolvedPageSize
+        );
+    }
+
+    public AdminDtos.AdminAccountView createAdminAccount(AdminDtos.AdminAccountUpsertRequest request) {
+        validateAdminAccountRequest(request, true);
+        String username = request.username().trim();
+        Long existingCount = adminUserAccountMapper.selectCount(
+                new LambdaQueryWrapper<AdminUserAccount>().eq(AdminUserAccount::getUsername, username)
+        );
+        if (existingCount != null && existingCount > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "管理员账号已存在");
+        }
+
+        AdminUserAccount account = new AdminUserAccount();
+        account.setUsername(username);
+        account.setPassword(passwordEncoder.encode(request.password().trim()));
+        account.setDisplayName(request.displayName().trim());
+        account.setRoleName(request.roleName().trim());
+        account.setStatus(Boolean.FALSE.equals(request.enabled()) ? 0 : 1);
+        account.setCreateTime(LocalDateTime.now());
+        account.setUpdateTime(LocalDateTime.now());
+        adminUserAccountMapper.insert(account);
+        return toAdminAccountView(account);
+    }
+
+    public AdminDtos.AdminAccountView updateAdminAccount(String adminUserId, AdminDtos.AdminAccountUpsertRequest request) {
+        Long id = parseLongId(adminUserId, "adminUserId");
+        AdminUserAccount account = adminUserAccountMapper.selectById(id);
+        if (account == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "管理员账号不存在");
+        }
+        validateAdminAccountRequest(request, false);
+
+        if (StringUtils.hasText(request.username())) {
+            String username = request.username().trim();
+            if (!username.equals(account.getUsername())) {
+                Long existingCount = adminUserAccountMapper.selectCount(
+                        new LambdaQueryWrapper<AdminUserAccount>().eq(AdminUserAccount::getUsername, username)
+                );
+                if (existingCount != null && existingCount > 0) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "管理员账号已存在");
+                }
+                account.setUsername(username);
+            }
+        }
+        if (StringUtils.hasText(request.displayName())) {
+            account.setDisplayName(request.displayName().trim());
+        }
+        if (StringUtils.hasText(request.roleName())) {
+            ensureRoleExists(request.roleName());
+            account.setRoleName(request.roleName().trim());
+        }
+        if (request.enabled() != null) {
+            account.setStatus(Boolean.TRUE.equals(request.enabled()) ? 1 : 0);
+        }
+        account.setUpdateTime(LocalDateTime.now());
+        adminUserAccountMapper.updateById(account);
+        return toAdminAccountView(account);
+    }
+
+    public AdminDtos.AdminAccountView updateAdminAccountStatus(
+            String adminUserId,
+            AdminDtos.AdminAccountStatusUpdateRequest request
+    ) {
+        Long id = parseLongId(adminUserId, "adminUserId");
+        AdminUserAccount account = adminUserAccountMapper.selectById(id);
+        if (account == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "管理员账号不存在");
+        }
+        int status = parseEnabledStatus(request == null ? null : request.status(), request == null ? null : request.enabled());
+        account.setStatus(status);
+        account.setUpdateTime(LocalDateTime.now());
+        adminUserAccountMapper.updateById(account);
+        return toAdminAccountView(account);
+    }
+
+    public AdminDtos.AdminAccountView resetAdminPassword(
+            String adminUserId,
+            AdminDtos.AdminPasswordResetRequest request
+    ) {
+        Long id = parseLongId(adminUserId, "adminUserId");
+        AdminUserAccount account = adminUserAccountMapper.selectById(id);
+        if (account == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "管理员账号不存在");
+        }
+        if (request == null || !StringUtils.hasText(request.password()) || request.password().trim().length() < 6) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "新密码至少 6 位");
+        }
+        account.setPassword(passwordEncoder.encode(request.password().trim()));
+        account.setUpdateTime(LocalDateTime.now());
+        adminUserAccountMapper.updateById(account);
+        return toAdminAccountView(account);
     }
 
     public List<AdminDtos.NoticeView> listNotices() {
@@ -557,6 +731,71 @@ public class AdminService {
         return buildOrderViews(orders);
     }
 
+    public AdminDtos.PageResult<AdminDtos.OrderView> listOrdersPaged(
+            int page,
+            int pageSize,
+            String status,
+            String keyword,
+            String tableId,
+            String userId,
+            String from,
+            String to
+    ) {
+        int resolvedPage = Math.max(1, page);
+        int resolvedPageSize = pageSize <= 0 ? 20 : Math.min(200, pageSize);
+        LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>().orderByDesc(Order::getOrderTime);
+
+        Integer statusCode = parseStatusOrNull(status);
+        if (statusCode != null) {
+            query.eq(Order::getStatus, statusCode);
+        }
+        Long resolvedTableId = parseLongOrNull(tableId);
+        if (resolvedTableId != null) {
+            query.eq(Order::getTableId, resolvedTableId);
+        }
+        Long resolvedUserId = parseLongOrNull(userId);
+        if (resolvedUserId != null) {
+            query.eq(Order::getUserId, resolvedUserId);
+        }
+        LocalDateTime fromTime = parseDateStartOrNull(from);
+        if (fromTime != null) {
+            query.ge(Order::getOrderTime, fromTime);
+        }
+        LocalDateTime toTime = parseDateEndOrNull(to);
+        if (toTime != null) {
+            query.le(Order::getOrderTime, toTime);
+        }
+        String q = trimToNull(keyword);
+        if (q != null) {
+            Long idKeyword = parseLongOrNull(q);
+            query.and(w -> {
+                w.like(Order::getOrderNo, q);
+                if (idKeyword != null) {
+                    w.or().eq(Order::getId, idKeyword).or().eq(Order::getTableId, idKeyword).or().eq(Order::getUserId, idKeyword);
+                }
+            });
+        }
+
+        Page<Order> pageReq = new Page<>(resolvedPage, resolvedPageSize);
+        Page<Order> pageRes = orderMapper.selectPage(pageReq, query);
+        return new AdminDtos.PageResult<>(
+                buildOrderViews(pageRes.getRecords()),
+                pageRes.getTotal(),
+                resolvedPage,
+                resolvedPageSize
+        );
+    }
+
+    public AdminDtos.OrderView getOrderDetail(String orderId) {
+        Long id = parseLongId(orderId, "orderId");
+        Order order = orderMapper.selectById(id);
+        if (order == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在");
+        }
+        return buildOrderViews(List.of(order)).stream().findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "获取订单失败"));
+    }
+
     public AdminDtos.OrderView updateOrderStatus(String orderId, AdminDtos.UpdateOrderStatusRequest request) {
         if (!StringUtils.hasText(orderId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orderId 不能为空");
@@ -628,6 +867,138 @@ public class AdminService {
                 })
                 .sorted(Comparator.comparingLong(AdminDtos.DishSalesView::soldQty).reversed())
                 .toList();
+    }
+
+    public AdminDtos.StatsSummaryView getStatsSummary(String from, String to) {
+        List<Order> orders = listOrdersInRange(from, to);
+        List<Order> paidOrders = orders.stream()
+                .filter(order -> order.getStatus() != null && order.getStatus() >= 1 && order.getStatus() <= 3)
+                .toList();
+        BigDecimal revenue = paidOrders.stream()
+                .map(Order::getTotalAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        long orderCount = orders.size();
+        long paidOrderCount = paidOrders.size();
+        BigDecimal average = paidOrderCount == 0
+                ? BigDecimal.ZERO
+                : revenue.divide(BigDecimal.valueOf(paidOrderCount), 2, RoundingMode.HALF_UP);
+        double paymentSuccessRate = orderCount == 0 ? 0 : (paidOrderCount * 1.0d / orderCount);
+        return new AdminDtos.StatsSummaryView(
+                new AdminDtos.MoneyView(CURRENCY_CNY, toFen(revenue)),
+                orderCount,
+                paidOrderCount,
+                new AdminDtos.MoneyView(CURRENCY_CNY, toFen(average)),
+                paymentSuccessRate
+        );
+    }
+
+    public List<AdminDtos.StatsTrendPointView> getStatsTrend(String from, String to) {
+        List<Order> orders = listOrdersInRange(from, to);
+        LocalDate startDate = parseDateOrDefault(from, LocalDate.now().minusDays(6));
+        LocalDate endDate = parseDateOrDefault(to, LocalDate.now());
+        if (endDate.isBefore(startDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "结束日期不能早于开始日期");
+        }
+        Map<LocalDate, List<Order>> byDate = orders.stream()
+                .filter(order -> order.getOrderTime() != null)
+                .collect(Collectors.groupingBy(order -> order.getOrderTime().toLocalDate()));
+
+        List<AdminDtos.StatsTrendPointView> result = new ArrayList<>();
+        for (LocalDate cursor = startDate; !cursor.isAfter(endDate); cursor = cursor.plusDays(1)) {
+            List<Order> dayOrders = byDate.getOrDefault(cursor, List.of());
+            List<Order> paidOrders = dayOrders.stream()
+                    .filter(order -> order.getStatus() != null && order.getStatus() >= 1 && order.getStatus() <= 3)
+                    .toList();
+            BigDecimal revenue = paidOrders.stream()
+                    .map(Order::getTotalAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            result.add(new AdminDtos.StatsTrendPointView(
+                    cursor.toString(),
+                    new AdminDtos.MoneyView(CURRENCY_CNY, toFen(revenue)),
+                    dayOrders.size(),
+                    paidOrders.size()
+            ));
+        }
+        return result;
+    }
+
+    public AdminDtos.SystemSettingsView getSystemSettings() {
+        Map<String, String> settings = systemSettingMapper.selectList(new LambdaQueryWrapper<SystemSetting>())
+                .stream()
+                .collect(Collectors.toMap(SystemSetting::getSettingKey, SystemSetting::getSettingValue, (a, b) -> a));
+        return new AdminDtos.SystemSettingsView(
+                settings.getOrDefault(SETTING_STORE_ID, STORE_ID),
+                settings.getOrDefault(SETTING_STORE_NAME, "FoodOrdering 示例门店"),
+                settings.getOrDefault(SETTING_OPEN_TIME, "09:00"),
+                settings.getOrDefault(SETTING_CLOSE_TIME, "22:00"),
+                Boolean.parseBoolean(settings.getOrDefault(SETTING_AUTO_ACCEPT, "true")),
+                Boolean.parseBoolean(settings.getOrDefault(SETTING_PRINTER_ENABLED, "false"))
+        );
+    }
+
+    public AdminDtos.SystemSettingsView updateSystemSettings(AdminDtos.SystemSettingsUpdateRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请求体不能为空");
+        }
+        if (StringUtils.hasText(request.storeId())) {
+            upsertSetting(SETTING_STORE_ID, request.storeId().trim(), "门店ID");
+        }
+        if (StringUtils.hasText(request.storeName())) {
+            upsertSetting(SETTING_STORE_NAME, request.storeName().trim(), "门店名称");
+        }
+        if (StringUtils.hasText(request.openTime())) {
+            validateTimeText(request.openTime(), "营业开始时间");
+            upsertSetting(SETTING_OPEN_TIME, request.openTime().trim(), "营业开始时间");
+        }
+        if (StringUtils.hasText(request.closeTime())) {
+            validateTimeText(request.closeTime(), "营业结束时间");
+            upsertSetting(SETTING_CLOSE_TIME, request.closeTime().trim(), "营业结束时间");
+        }
+        if (request.autoAccept() != null) {
+            upsertSetting(SETTING_AUTO_ACCEPT, String.valueOf(Boolean.TRUE.equals(request.autoAccept())), "是否自动接单");
+        }
+        if (request.printerEnabled() != null) {
+            upsertSetting(SETTING_PRINTER_ENABLED, String.valueOf(Boolean.TRUE.equals(request.printerEnabled())), "是否启用打印");
+        }
+        return getSystemSettings();
+    }
+
+    public AdminDtos.PageResult<AdminDtos.AuditLogView> listAuditLogs(
+            int page,
+            int pageSize,
+            String keyword,
+            String result
+    ) {
+        int resolvedPage = Math.max(1, page);
+        int resolvedPageSize = pageSize <= 0 ? 20 : Math.min(200, pageSize);
+        LambdaQueryWrapper<AdminOperationLog> query = new LambdaQueryWrapper<AdminOperationLog>()
+                .orderByDesc(AdminOperationLog::getCreateTime);
+        String q = trimToNull(keyword);
+        if (q != null) {
+            Long idKeyword = parseLongOrNull(q);
+            query.and(w -> {
+                w.like(AdminOperationLog::getAdminName, q)
+                        .or().like(AdminOperationLog::getRequestPath, q)
+                        .or().like(AdminOperationLog::getResourceType, q);
+                if (idKeyword != null) {
+                    w.or().eq(AdminOperationLog::getAdminId, idKeyword);
+                }
+            });
+        }
+        String normalizedResult = trimToNull(result);
+        if (normalizedResult != null) {
+            query.eq(AdminOperationLog::getResult, normalizedResult.toUpperCase());
+        }
+        Page<AdminOperationLog> pageReq = new Page<>(resolvedPage, resolvedPageSize);
+        Page<AdminOperationLog> pageRes = adminOperationLogMapper.selectPage(pageReq, query);
+        return new AdminDtos.PageResult<>(
+                pageRes.getRecords().stream().map(this::toAuditLogView).toList(),
+                pageRes.getTotal(),
+                resolvedPage,
+                resolvedPageSize
+        );
     }
 
     public List<AdminDtos.CommentView> listComments() {
@@ -830,15 +1201,26 @@ public class AdminService {
                 .map(Order::getTableId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+        Set<Long> userIds = orders.stream()
+                .map(Order::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
         Map<Long, Table> tableMap = tableIds.isEmpty()
                 ? Map.of()
                 : tableMapper.selectBatchIds(tableIds).stream().collect(Collectors.toMap(Table::getId, Function.identity()));
+        Map<Long, User> userMap = userIds.isEmpty()
+                ? Map.of()
+                : userMapper.selectBatchIds(userIds).stream().collect(Collectors.toMap(User::getId, Function.identity()));
 
         List<OrderItem> orderItems = orderItemMapper.selectList(
                 new LambdaQueryWrapper<OrderItem>().in(OrderItem::getOrderId, orderIds)
         );
         Map<Long, List<OrderItem>> orderItemMap = orderItems.stream().collect(Collectors.groupingBy(OrderItem::getOrderId));
+        List<Payment> payments = paymentMapper.selectList(
+                new LambdaQueryWrapper<Payment>().in(Payment::getOrderId, orderIds)
+        );
+        Map<Long, List<Payment>> paymentMap = payments.stream().collect(Collectors.groupingBy(Payment::getOrderId));
 
         Set<Long> dishIds = new HashSet<>();
         for (OrderItem item : orderItems) {
@@ -867,18 +1249,36 @@ public class AdminService {
 
             Table table = order.getTableId() == null ? null : tableMap.get(order.getTableId());
             String tableName = table == null ? "未分配桌台" : table.getTableNo();
+            User user = order.getUserId() == null ? null : userMap.get(order.getUserId());
+            AdminDtos.OrderUserView userView = user == null
+                    ? null
+                    : new AdminDtos.OrderUserView(
+                    String.valueOf(user.getId()),
+                    user.getUsername(),
+                    user.getPhone()
+            );
+            List<AdminDtos.PaymentView> paymentViews = paymentMap.getOrDefault(order.getId(), List.of())
+                    .stream()
+                    .sorted(Comparator.comparing(Payment::getCreateTime, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                    .map(this::toPaymentView)
+                    .toList();
             LocalDateTime createdAt = order.getOrderTime() != null ? order.getOrderTime() : order.getCreateTime();
 
             return new AdminDtos.OrderView(
                     String.valueOf(order.getId()),
+                    order.getOrderNo(),
                     STORE_ID,
                     order.getTableId() == null ? "" : String.valueOf(order.getTableId()),
                     tableName,
                     mapDbStatusToApi(order.getStatus()),
                     itemViews,
                     new AdminDtos.MoneyView(CURRENCY_CNY, toFen(order.getTotalAmount())),
+                    userView,
+                    paymentViews,
                     order.getRemark(),
-                    toIso(createdAt)
+                    toIso(createdAt),
+                    toIso(order.getCompleteTime()),
+                    toIso(order.getUpdateTime())
             );
         }).toList();
     }
@@ -908,7 +1308,23 @@ public class AdminService {
                 dish.getName(),
                 toFen(dish.getPrice()),
                 dish.getStatus() != null && dish.getStatus() == 1,
-                dish.getSoldOut() != null && dish.getSoldOut() == 1
+                dish.getSoldOut() != null && dish.getSoldOut() == 1,
+                dish.getDescription(),
+                dish.getImage(),
+                dish.getSortOrder() == null ? 0 : dish.getSortOrder()
+        );
+    }
+
+    private AdminDtos.PaymentView toPaymentView(Payment payment) {
+        return new AdminDtos.PaymentView(
+                String.valueOf(payment.getId()),
+                payment.getPaymentNo(),
+                DB_TO_PAYMENT_METHOD.getOrDefault(payment.getPaymentMethod(), "UNKNOWN"),
+                DB_TO_PAYMENT_STATUS.getOrDefault(payment.getStatus(), "PENDING"),
+                new AdminDtos.MoneyView(CURRENCY_CNY, toFen(payment.getAmount())),
+                payment.getTransactionId(),
+                toIso(payment.getPaymentTime()),
+                toIso(payment.getCreateTime())
         );
     }
 
@@ -942,6 +1358,55 @@ public class AdminService {
         if (!StringUtils.hasText(request.content())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "公告内容不能为空");
         }
+    }
+
+    private void validateAdminAccountRequest(AdminDtos.AdminAccountUpsertRequest request, boolean creating) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请求体不能为空");
+        }
+        if (creating && !StringUtils.hasText(request.username())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "管理员账号不能为空");
+        }
+        if (creating && (!StringUtils.hasText(request.password()) || request.password().trim().length() < 6)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "密码至少 6 位");
+        }
+        if (creating && !StringUtils.hasText(request.displayName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "显示名称不能为空");
+        }
+        if (creating && !StringUtils.hasText(request.roleName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "角色不能为空");
+        }
+        if (StringUtils.hasText(request.roleName())) {
+            ensureRoleExists(request.roleName());
+        }
+    }
+
+    private void ensureRoleExists(String roleName) {
+        if (!adminAuthorizationService.getRoleNames().contains(roleName.trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "非法角色: " + roleName);
+        }
+    }
+
+    private int parseEnabledStatus(String status, Boolean enabled) {
+        if (enabled != null) {
+            return Boolean.TRUE.equals(enabled) ? 1 : 0;
+        }
+        if (!StringUtils.hasText(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "状态不能为空");
+        }
+        String normalized = status.trim().toUpperCase();
+        return switch (normalized) {
+            case "1", "TRUE", "ACTIVE", "ENABLED" -> 1;
+            case "0", "FALSE", "INACTIVE", "DISABLED" -> 0;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "非法状态: " + status);
+        };
+    }
+
+    private Integer parseEnabledStatusOrNull(String status) {
+        if (!StringUtils.hasText(status)) {
+            return null;
+        }
+        return parseEnabledStatus(status, null);
     }
 
     private Long parseLongId(String raw, String fieldName) {
@@ -1013,6 +1478,71 @@ public class AdminService {
         }
     }
 
+    private LocalDate parseDateOrDefault(String value, LocalDate defaultValue) {
+        String trimmed = trimToNull(value);
+        if (trimmed == null) {
+            return defaultValue;
+        }
+        try {
+            return LocalDate.parse(trimmed);
+        } catch (RuntimeException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "日期格式应为 yyyy-MM-dd");
+        }
+    }
+
+    private LocalDateTime parseDateStartOrNull(String value) {
+        String trimmed = trimToNull(value);
+        return trimmed == null ? null : parseDateOrDefault(trimmed, null).atStartOfDay();
+    }
+
+    private LocalDateTime parseDateEndOrNull(String value) {
+        String trimmed = trimToNull(value);
+        return trimmed == null ? null : parseDateOrDefault(trimmed, null).plusDays(1).atStartOfDay().minusNanos(1);
+    }
+
+    private List<Order> listOrdersInRange(String from, String to) {
+        LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>().orderByAsc(Order::getOrderTime);
+        LocalDateTime fromTime = parseDateStartOrNull(from);
+        if (fromTime != null) {
+            query.ge(Order::getOrderTime, fromTime);
+        }
+        LocalDateTime toTime = parseDateEndOrNull(to);
+        if (toTime != null) {
+            query.le(Order::getOrderTime, toTime);
+        }
+        return orderMapper.selectList(query);
+    }
+
+    private void upsertSetting(String key, String value, String description) {
+        SystemSetting setting = systemSettingMapper.selectOne(
+                new LambdaQueryWrapper<SystemSetting>()
+                        .eq(SystemSetting::getSettingKey, key)
+                        .last("LIMIT 1")
+        );
+        LocalDateTime now = LocalDateTime.now();
+        if (setting == null) {
+            setting = new SystemSetting();
+            setting.setSettingKey(key);
+            setting.setSettingValue(value);
+            setting.setDescription(description);
+            setting.setCreateTime(now);
+            setting.setUpdateTime(now);
+            systemSettingMapper.insert(setting);
+            return;
+        }
+        setting.setSettingValue(value);
+        setting.setDescription(description);
+        setting.setUpdateTime(now);
+        systemSettingMapper.updateById(setting);
+    }
+
+    private void validateTimeText(String value, String fieldName) {
+        String trimmed = trimToNull(value);
+        if (trimmed == null || !trimmed.matches("^\\d{2}:\\d{2}$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + "格式应为 HH:mm");
+        }
+    }
+
     private String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -1026,7 +1556,36 @@ public class AdminService {
                 String.valueOf(account.getId()),
                 account.getUsername(),
                 account.getDisplayName(),
-                account.getRoleName()
+                account.getRoleName(),
+                adminAuthorizationService.getPermissionNames(account.getRoleName())
+        );
+    }
+
+    private AdminDtos.AdminAccountView toAdminAccountView(AdminUserAccount account) {
+        return new AdminDtos.AdminAccountView(
+                String.valueOf(account.getId()),
+                account.getUsername(),
+                account.getDisplayName(),
+                account.getRoleName(),
+                adminAuthorizationService.getPermissionNames(account.getRoleName()),
+                account.getStatus() != null && account.getStatus() == 1 ? "ACTIVE" : "INACTIVE",
+                toIso(account.getCreateTime()),
+                toIso(account.getUpdateTime())
+        );
+    }
+
+    private AdminDtos.AuditLogView toAuditLogView(AdminOperationLog log) {
+        return new AdminDtos.AuditLogView(
+                String.valueOf(log.getId()),
+                log.getAdminId() == null ? null : String.valueOf(log.getAdminId()),
+                log.getAdminName(),
+                log.getAction(),
+                log.getResourceType(),
+                log.getResourceId(),
+                log.getRequestPath(),
+                log.getResult(),
+                log.getMessage(),
+                toIso(log.getCreateTime())
         );
     }
 
@@ -1117,7 +1676,7 @@ public class AdminService {
 
         String trimmedArea = trimToNull(area);
         if (trimmedArea != null) {
-            query.like(Table::getLocation, trimmedArea);
+            query.like(Table::getArea, trimmedArea);
         }
 
         String q = trimToNull(keyword);
@@ -1172,6 +1731,7 @@ public class AdminService {
         table.setCapacity(request.capacity());
         table.setStatus(0);
         table.setLocation(trimToNull(request.location()));
+        table.setArea(trimToNull(request.area()));
         table.setCreateTime(LocalDateTime.now());
         table.setUpdateTime(LocalDateTime.now());
         tableMapper.insert(table);
@@ -1214,10 +1774,23 @@ public class AdminService {
         if (request.location() != null) {
             table.setLocation(trimToNull(request.location()));
         }
+        if (request.area() != null) {
+            table.setArea(trimToNull(request.area()));
+        }
 
         table.setUpdateTime(LocalDateTime.now());
         tableMapper.updateById(table);
         return toTableView(table);
+    }
+
+    public AdminDtos.QrPayloadView getTableQrPayload(String tableId) {
+        Long id = parseLongId(tableId, "tableId");
+        Table table = tableMapper.selectById(id);
+        if (table == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "桌码不存在");
+        }
+        String payload = "storeId=" + getSystemSettings().storeId() + "&tableId=" + table.getId();
+        return new AdminDtos.QrPayloadView(String.valueOf(table.getId()), table.getTableNo(), payload);
     }
 
     public void deleteTable(String tableId) {
@@ -1262,7 +1835,7 @@ public class AdminService {
                 table.getCapacity() == null ? 0 : table.getCapacity(),
                 statusStr,
                 table.getLocation(),
-                null,
+                table.getArea(),
                 toIso(table.getCreateTime()),
                 toIso(table.getUpdateTime())
         );

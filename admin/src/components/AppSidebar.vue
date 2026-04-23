@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import { computed } from 'vue'
 import { 
-  LayoutDashboard, 
   Users, 
   Utensils, 
   ShoppingBag, 
@@ -10,23 +10,30 @@ import {
   HelpCircle, 
   Settings,
   Bell,
-  QrCode
+  QrCode,
+  Shield,
+  ClipboardList
 } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
 
 const menuItems = [
   { name: '订单管理', path: '/orders', icon: ShoppingBag },
   { name: '菜品管理', path: '/menu', icon: Utensils },
   { name: '桌台管理', path: '/tables', icon: QrCode },
   { name: '用户管理', path: '/users', icon: Users },
-  { name: '数据统计', path: '/stats', icon: BarChart2 },
+  { name: '数据统计', path: '/stats', icon: BarChart2, permission: 'STATS_VIEW' },
   { name: '公告管理', path: '/notices', icon: Bell },
   { name: '评论管理', path: '/comments', icon: MessageSquare },
   { name: '客服管理', path: '/support', icon: HelpCircle },
-  { name: '系统设置', path: '/settings', icon: Settings },
+  { name: '管理员', path: '/admins', icon: Shield, permission: 'ADMIN_USER_MANAGE' },
+  { name: '操作日志', path: '/audit-logs', icon: ClipboardList, permission: 'AUDIT_LOG_VIEW' },
+  { name: '系统设置', path: '/settings', icon: Settings, permission: 'SETTINGS_MANAGE' },
 ]
 
+const visibleMenuItems = computed(() => menuItems.filter(item => auth.hasPermission(item.permission)))
 const isActive = (path: string) => route.path.startsWith(path)
 </script>
 
@@ -49,7 +56,7 @@ const isActive = (path: string) => route.path.startsWith(path)
     <!-- Nav Items -->
     <nav class="flex-1 overflow-y-auto py-6 px-3 space-y-1">
       <router-link 
-        v-for="item in menuItems" 
+        v-for="item in visibleMenuItems"
         :key="item.path" 
         :to="item.path"
         class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden"
@@ -82,10 +89,10 @@ const isActive = (path: string) => route.path.startsWith(path)
         </div>
         <div>
           <div class="text-sm font-medium text-white">
-            管理员
+            {{ auth.user?.displayName ?? '管理员' }}
           </div>
           <div class="text-xs text-white/40">
-            admin@foodos.com
+            {{ auth.user?.roleName ?? '未登录' }}
           </div>
         </div>
       </div>

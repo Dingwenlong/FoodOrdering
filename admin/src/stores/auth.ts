@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
 
   const isAuthed = computed(() => Boolean(token.value))
+  const permissions = computed(() => user.value?.permissions ?? [])
 
   async function login(payload: { username: string; password: string }) {
     loading.value = true
@@ -34,11 +35,18 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(ADMIN_TOKEN_KEY)
   }
 
+  function hasPermission(permission?: string) {
+    if (!permission) return true
+    return permissions.value.includes(permission)
+  }
+
   return {
     token,
     user,
     loading,
     isAuthed,
+    permissions,
+    hasPermission,
     login,
     ensureProfile,
     logout,

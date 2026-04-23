@@ -2,8 +2,10 @@ import axios, { AxiosHeaders } from 'axios'
 import { envBool } from '@/lib/env'
 import type {
   AdminUser,
+  AdminAccount,
   AppUser,
   AppUserDetail,
+  AuditLog,
   Category,
   Comment,
   Dish,
@@ -13,10 +15,15 @@ import type {
   Order,
   OrderStatus,
   PageResult,
+  QrPayload,
+  Role,
   SendMessageRequest,
+  StatsSummary,
+  StatsTrendPoint,
   SupportTicket,
   SupportTicketDetail,
   SupportTicketMessage,
+  SystemSettings,
   Table,
   TableStatus,
 } from '@/types'
@@ -45,6 +52,29 @@ import {
   mockUpdateUserStatusApi,
   mockGetUserDetail,
   mockGetSupportTicketDetail,
+  mockListOrdersPaged,
+  mockGetOrderDetail,
+  mockGetStatsSummary,
+  mockGetStatsTrend,
+  mockGetSystemSettings,
+  mockUpdateSystemSettings,
+  mockGetTableQrPayload,
+  mockListAdminAccounts,
+  mockCreateAdminAccount,
+  mockUpdateAdminAccount,
+  mockUpdateAdminAccountStatus,
+  mockResetAdminPassword,
+  mockListRoles,
+  mockListAuditLogs,
+  mockCreateCategoryApi,
+  mockUpdateCategoryApi,
+  mockDeleteCategoryApi,
+  mockListTablesPaged,
+  mockGetTableDetail,
+  mockCreateTable,
+  mockUpdateTable,
+  mockDeleteTable,
+  mockUpdateTableStatus,
 } from '@/mocks/api'
 
 export const ADMIN_TOKEN_KEY = 'admin_token'
@@ -179,7 +209,27 @@ export const api = {
 
   async listOrders(params?: { status?: OrderStatus }): Promise<Order[]> {
     if (useMock()) return fromMock(() => mockListOrders(params))
+    const pageResult = await fromHttp<PageResult<Order>>(() => http.get(`${ADMIN_API_PREFIX}/orders`, { params }))
+    return pageResult.list
+  },
+
+  async listOrdersPaged(params?: {
+    page?: number
+    pageSize?: number
+    status?: OrderStatus
+    keyword?: string
+    tableId?: string
+    userId?: string
+    from?: string
+    to?: string
+  }): Promise<PageResult<Order>> {
+    if (useMock()) return fromMock(() => mockListOrdersPaged(params))
     return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/orders`, { params }))
+  },
+
+  async getOrderDetail(orderId: string): Promise<Order> {
+    if (useMock()) return fromMock(() => mockGetOrderDetail(orderId))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/orders/${orderId}`))
   },
 
   async updateOrderStatus(payload: { orderId: string; status: OrderStatus }): Promise<Order> {
@@ -190,6 +240,26 @@ export const api = {
   async getDishSales(): Promise<DishSales[]> {
     if (useMock()) return fromMock(() => mockGetDishSales())
     return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/stats/dish-sales`))
+  },
+
+  async getStatsSummary(params?: { from?: string; to?: string }): Promise<StatsSummary> {
+    if (useMock()) return fromMock(() => mockGetStatsSummary(params))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/stats/summary`, { params }))
+  },
+
+  async getStatsTrend(params?: { from?: string; to?: string }): Promise<StatsTrendPoint[]> {
+    if (useMock()) return fromMock(() => mockGetStatsTrend(params))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/stats/trend`, { params }))
+  },
+
+  async getSystemSettings(): Promise<SystemSettings> {
+    if (useMock()) return fromMock(() => mockGetSystemSettings())
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/settings`))
+  },
+
+  async updateSystemSettings(payload: SystemSettings): Promise<SystemSettings> {
+    if (useMock()) return fromMock(() => mockUpdateSystemSettings(payload))
+    return fromHttp(() => http.put(`${ADMIN_API_PREFIX}/settings`, payload))
   },
 
   async listComments(): Promise<Comment[]> {
@@ -244,6 +314,9 @@ export const api = {
     priceFen: number
     onSale: boolean
     soldOut: boolean
+    description?: string
+    image?: string
+    sort?: number
   }): Promise<Dish> {
     if (useMock()) return fromMock(() => mockCreateDishApi(payload))
     return fromHttp(() => http.post(`${ADMIN_API_PREFIX}/dishes`, payload))
@@ -256,6 +329,9 @@ export const api = {
     priceFen: number
     onSale: boolean
     soldOut: boolean
+    description?: string
+    image?: string
+    sort?: number
   }): Promise<Dish> {
     if (useMock()) return fromMock(() => mockUpdateDishApi(payload))
     const { dishId, ...body } = payload
@@ -265,6 +341,22 @@ export const api = {
   async deleteDish(dishId: string): Promise<void> {
     if (useMock()) return fromMock(() => mockDeleteDishApi({ dishId }))
     return fromHttp(() => http.delete(`${ADMIN_API_PREFIX}/dishes/${dishId}`))
+  },
+
+  async createCategory(payload: { name: string; sort: number; enabled?: boolean }): Promise<Category> {
+    if (useMock()) return fromMock(() => mockCreateCategoryApi(payload))
+    return fromHttp(() => http.post(`${ADMIN_API_PREFIX}/categories`, payload))
+  },
+
+  async updateCategory(payload: { categoryId: string; name: string; sort: number; enabled?: boolean }): Promise<Category> {
+    if (useMock()) return fromMock(() => mockUpdateCategoryApi(payload))
+    const { categoryId, ...body } = payload
+    return fromHttp(() => http.put(`${ADMIN_API_PREFIX}/categories/${categoryId}`, body))
+  },
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    if (useMock()) return fromMock(() => mockDeleteCategoryApi({ categoryId }))
+    return fromHttp(() => http.delete(`${ADMIN_API_PREFIX}/categories/${categoryId}`))
   },
 
   async updateUserStatus(payload: { userId: string; status: 'ACTIVE' | 'INACTIVE' }): Promise<{ id: string; status: 'ACTIVE' | 'INACTIVE' }> {
@@ -300,35 +392,12 @@ export const api = {
     status?: TableStatus
     area?: string
   }): Promise<PageResult<Table>> {
-    if (useMock()) {
-      const mockTables: Table[] = [
-        { id: '1', tableNo: 'A01', capacity: 4, status: 'IDLE', location: '一楼大厅', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '2', tableNo: 'A02', capacity: 6, status: 'OCCUPIED', location: '一楼大厅', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '3', tableNo: 'B01', capacity: 8, status: 'IDLE', location: '二楼包间', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '4', tableNo: 'B02', capacity: 4, status: 'MAINTENANCE', location: '二楼包间', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      ]
-      return fromMock(() => Promise.resolve({
-        list: mockTables,
-        total: mockTables.length,
-        page: params?.page ?? 1,
-        pageSize: params?.pageSize ?? 20,
-      }))
-    }
+    if (useMock()) return fromMock(() => mockListTablesPaged(params))
     return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/tables`, { params }))
   },
 
   async getTableDetail(tableId: string): Promise<Table> {
-    if (useMock()) {
-      return fromMock(() => Promise.resolve({
-        id: tableId,
-        tableNo: 'A01',
-        capacity: 4,
-        status: 'IDLE',
-        location: '一楼大厅',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }))
-    }
+    if (useMock()) return fromMock(() => mockGetTableDetail(tableId))
     return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/tables/${tableId}`))
   },
 
@@ -338,18 +407,7 @@ export const api = {
     location?: string
     area?: string
   }): Promise<Table> {
-    if (useMock()) {
-      return fromMock(() => Promise.resolve({
-        id: String(Date.now()),
-        tableNo: payload.tableNo,
-        capacity: payload.capacity,
-        status: 'IDLE',
-        location: payload.location,
-        area: payload.area,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }))
-    }
+    if (useMock()) return fromMock(() => mockCreateTable(payload))
     return fromHttp(() => http.post(`${ADMIN_API_PREFIX}/tables`, payload))
   },
 
@@ -360,42 +418,85 @@ export const api = {
     location?: string
     area?: string
   }): Promise<Table> {
-    if (useMock()) {
-      return fromMock(() => Promise.resolve({
-        id: payload.tableId,
-        tableNo: payload.tableNo,
-        capacity: payload.capacity,
-        status: 'IDLE',
-        location: payload.location,
-        area: payload.area,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }))
-    }
+    if (useMock()) return fromMock(() => mockUpdateTable(payload))
     const { tableId, ...body } = payload
     return fromHttp(() => http.put(`${ADMIN_API_PREFIX}/tables/${tableId}`, body))
   },
 
   async deleteTable(tableId: string): Promise<void> {
-    if (useMock()) {
-      return fromMock(() => Promise.resolve())
-    }
+    if (useMock()) return fromMock(() => mockDeleteTable(tableId))
     return fromHttp(() => http.delete(`${ADMIN_API_PREFIX}/tables/${tableId}`))
   },
 
   async updateTableStatus(payload: { tableId: string; status: TableStatus }): Promise<Table> {
-    if (useMock()) {
-      return fromMock(() => Promise.resolve({
-        id: payload.tableId,
-        tableNo: 'A01',
-        capacity: 4,
-        status: payload.status,
-        location: '一楼大厅',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }))
-    }
+    if (useMock()) return fromMock(() => mockUpdateTableStatus(payload))
     const { tableId, status } = payload
     return fromHttp(() => http.patch(`${ADMIN_API_PREFIX}/tables/${tableId}/status`, { status }))
+  },
+
+  async getTableQrPayload(tableId: string): Promise<QrPayload> {
+    if (useMock()) return fromMock(() => mockGetTableQrPayload(tableId))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/tables/${tableId}/qr-payload`))
+  },
+
+  async listAdminAccounts(params?: {
+    page?: number
+    pageSize?: number
+    keyword?: string
+    roleName?: string
+    status?: AdminAccount['status']
+  }): Promise<PageResult<AdminAccount>> {
+    if (useMock()) return fromMock(() => mockListAdminAccounts(params))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/admin-users`, { params }))
+  },
+
+  async createAdminAccount(payload: {
+    username: string
+    password: string
+    displayName: string
+    roleName: string
+    enabled: boolean
+  }): Promise<AdminAccount> {
+    if (useMock()) return fromMock(() => mockCreateAdminAccount(payload))
+    return fromHttp(() => http.post(`${ADMIN_API_PREFIX}/admin-users`, payload))
+  },
+
+  async updateAdminAccount(payload: {
+    adminUserId: string
+    username: string
+    displayName: string
+    roleName: string
+    enabled: boolean
+  }): Promise<AdminAccount> {
+    if (useMock()) return fromMock(() => mockUpdateAdminAccount(payload))
+    const { adminUserId, ...body } = payload
+    return fromHttp(() => http.put(`${ADMIN_API_PREFIX}/admin-users/${adminUserId}`, body))
+  },
+
+  async updateAdminAccountStatus(payload: { adminUserId: string; status: AdminAccount['status'] }): Promise<AdminAccount> {
+    if (useMock()) return fromMock(() => mockUpdateAdminAccountStatus(payload))
+    const { adminUserId, status } = payload
+    return fromHttp(() => http.patch(`${ADMIN_API_PREFIX}/admin-users/${adminUserId}/status`, { status }))
+  },
+
+  async resetAdminPassword(payload: { adminUserId: string; password: string }): Promise<AdminAccount> {
+    if (useMock()) return fromMock(() => mockResetAdminPassword(payload))
+    const { adminUserId, password } = payload
+    return fromHttp(() => http.post(`${ADMIN_API_PREFIX}/admin-users/${adminUserId}/reset-password`, { password }))
+  },
+
+  async listRoles(): Promise<Role[]> {
+    if (useMock()) return fromMock(() => mockListRoles())
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/roles`))
+  },
+
+  async listAuditLogs(params?: {
+    page?: number
+    pageSize?: number
+    keyword?: string
+    result?: AuditLog['result']
+  }): Promise<PageResult<AuditLog>> {
+    if (useMock()) return fromMock(() => mockListAuditLogs(params))
+    return fromHttp(() => http.get(`${ADMIN_API_PREFIX}/audit-logs`, { params }))
   },
 }
