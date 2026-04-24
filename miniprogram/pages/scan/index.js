@@ -16,6 +16,9 @@ Page({
         tableId: '',
         storeName: '',
         tableName: '',
+        showManualForm: false,
+        manualStoreId: '',
+        manualTableId: '',
         loading: false,
         errorMsg: '',
     },
@@ -98,8 +101,32 @@ Page({
     },
     handleManual() {
         const session = wx.getStorageSync(request_1.STORAGE_KEYS.session);
-        const storeId = String((session === null || session === void 0 ? void 0 : session.storeId) || 'store_1').trim();
-        const tableId = String((session === null || session === void 0 ? void 0 : session.tableId) || '1').trim();
+        this.setData({
+            showManualForm: true,
+            manualStoreId: String((session === null || session === void 0 ? void 0 : session.storeId) || '').trim(),
+            manualTableId: String((session === null || session === void 0 ? void 0 : session.tableId) || '').trim(),
+            errorMsg: '',
+        });
+    },
+    handleManualStoreInput(event) {
+        this.setData({ manualStoreId: String(event.detail.value || '') });
+    },
+    handleManualTableInput(event) {
+        this.setData({ manualTableId: String(event.detail.value || '') });
+    },
+    handleManualSubmit() {
+        const storeId = String(this.data.manualStoreId || '').trim();
+        const tableId = String(this.data.manualTableId || '').trim();
+        if (!storeId) {
+            this.setData({ errorMsg: '请输入门店ID' });
+            wx.showToast({ title: '请输入门店ID', icon: 'none' });
+            return;
+        }
+        if (!tableId) {
+            this.setData({ errorMsg: '请输入桌台ID' });
+            wx.showToast({ title: '请输入桌台ID', icon: 'none' });
+            return;
+        }
         this.bindTable(storeId, tableId);
     },
     bindTable(storeId, tableId) {

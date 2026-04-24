@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "客服对话"
+  "navigationBarTitleText": "客服对话",
+  "enablePullDownRefresh": true,
+  "usingComponents": {}
 }

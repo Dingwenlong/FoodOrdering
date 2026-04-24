@@ -174,9 +174,10 @@ onMounted(() => loadOrders())
           </div>
           <div v-if="detailLoading" class="text-sm text-white/40">加载详情中...</div>
           <div class="space-y-3">
-            <div v-for="item in selectedOrder.items" :key="item.dishId" class="flex justify-between rounded-xl bg-black/20 p-3">
+            <div v-for="item in selectedOrder.items" :key="`${item.dishId}:${item.skuName || ''}`" class="flex justify-between rounded-xl bg-black/20 p-3">
               <div>
                 <div class="font-medium">{{ item.dishName }}</div>
+                <div v-if="item.skuName" class="text-xs text-white/45">{{ item.skuName }}</div>
                 <div class="text-xs text-white/40">x {{ item.qty }}</div>
               </div>
               <div>{{ formatMoney(item.unitPrice.amountFen * item.qty) }}</div>

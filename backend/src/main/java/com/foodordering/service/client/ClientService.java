@@ -12,6 +12,7 @@ import com.foodordering.entity.OrderItem;
 import com.foodordering.entity.Payment;
 import com.foodordering.entity.SupportTicketMessage;
 import com.foodordering.entity.SupportTicketRecord;
+import com.foodordering.entity.SystemSetting;
 import com.foodordering.entity.Table;
 import com.foodordering.entity.UserComment;
 import com.foodordering.entity.User;
@@ -23,6 +24,7 @@ import com.foodordering.mapper.OrderMapper;
 import com.foodordering.mapper.PaymentMapper;
 import com.foodordering.mapper.SupportTicketMessageMapper;
 import com.foodordering.mapper.SupportTicketRecordMapper;
+import com.foodordering.mapper.SystemSettingMapper;
 import com.foodordering.mapper.TableMapper;
 import com.foodordering.mapper.UserCommentMapper;
 import com.foodordering.mapper.UserMapper;
@@ -36,6 +38,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -45,15 +48,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
 public class ClientService {
 
-    private static final String STORE_ID = "store_1";
-    private static final String STORE_NAME = "未来餐厅";
+    private static final String DEFAULT_STORE_ID = "store_1";
+    private static final String DEFAULT_STORE_NAME = "未来餐厅";
+    private static final String DEFAULT_OPEN_TIME = "09:00";
+    private static final String DEFAULT_CLOSE_TIME = "22:00";
     private static final String CURRENCY_CNY = "CNY";
+    private static final int MAX_UNPAGED_LIST_SIZE = 200;
     private static final int ORDER_STATUS_PENDING_PAY = 0;
     private static final int ORDER_STATUS_PAID = 1;
     private static final int ORDER_STATUS_COOKING = 2;
@@ -62,6 +67,11 @@ public class ClientService {
     private static final int PAYMENT_METHOD_WECHAT = 2;
     private static final int PAYMENT_STATUS_PENDING = 0;
     private static final int PAYMENT_STATUS_SUCCESS = 1;
+    private static final String SETTING_STORE_ID = "storeId";
+    private static final String SETTING_STORE_NAME = "storeName";
+    private static final String SETTING_OPEN_TIME = "openTime";
+    private static final String SETTING_CLOSE_TIME = "closeTime";
+    private static final String SETTING_AUTO_ACCEPT = "autoAccept";
 
     private final CategoryMapper categoryMapper;
     private final DishMapper dishMapper;
@@ -74,6 +84,7 @@ public class ClientService {
     private final UserCommentMapper userCommentMapper;
     private final SupportTicketRecordMapper supportTicketRecordMapper;
     private final SupportTicketMessageMapper supportTicketMessageMapper;
+    private final SystemSettingMapper systemSettingMapper;
     private final ClientUserContext clientUserContext;
     private final WechatAuthService wechatAuthService;
     private final WechatPayService wechatPayService;
@@ -91,6 +102,7 @@ public class ClientService {
             UserCommentMapper userCommentMapper,
             SupportTicketRecordMapper supportTicketRecordMapper,
             SupportTicketMessageMapper supportTicketMessageMapper,
+            SystemSettingMapper systemSettingMapper,
             ClientUserContext clientUserContext,
             WechatAuthService wechatAuthService,
             WechatPayService wechatPayService
@@ -106,6 +118,7 @@ public class ClientService {
         this.userCommentMapper = userCommentMapper;
         this.supportTicketRecordMapper = supportTicketRecordMapper;
         this.supportTicketMessageMapper = supportTicketMessageMapper;
+        this.systemSettingMapper = systemSettingMapper;
         this.clientUserContext = clientUserContext;
         this.wechatAuthService = wechatAuthService;
         this.wechatPayService = wechatPayService;
@@ -123,7 +136,7 @@ public class ClientService {
             UserCommentMapper userCommentMapper
     ) {
         this(categoryMapper, dishMapper, tableMapper, userMapper, orderMapper, orderItemMapper, paymentMapper,
-                adminNoticeMapper, userCommentMapper, null, null, null, null, null);
+                adminNoticeMapper, userCommentMapper, null, null, null, null, null, null);
     }
 
     public ClientDtos.WechatLoginResponse wechatLogin(ClientDtos.WechatLoginRequest request) {
@@ -143,9 +156,10 @@ public class ClientService {
         if (table == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "桌台不存在");
         }
+        StoreSettings settings = getStoreSettings();
         return new ClientDtos.BindTableResponse(
-                STORE_ID,
-                STORE_NAME,
+                settings.storeId(),
+                settings.storeName(),
                 String.valueOf(table.getId()),
                 table.getTableNo()
         );
@@ -153,6 +167,7 @@ public class ClientService {
 
     public ClientDtos.MenuView getMenu(String storeId) {
         ensureStoreSupported(storeId);
+        StoreSettings settings = getStoreSettings();
         List<Category> categories = categoryMapper.selectList(
                 new LambdaQueryWrapper<Category>()
                         .eq(Category::getStatus, 1)
@@ -179,7 +194,7 @@ public class ClientService {
                 ))
                 .toList();
 
-        return new ClientDtos.MenuView(STORE_ID, STORE_NAME, categoryViews);
+        return new ClientDtos.MenuView(settings.storeId(), settings.storeName(), categoryViews);
     }
 
     public List<ClientDtos.NoticeView> listNotices() {
@@ -187,6 +202,7 @@ public class ClientService {
                 new LambdaQueryWrapper<AdminNotice>()
                         .orderByDesc(AdminNotice::getIsPinned)
                         .orderByDesc(AdminNotice::getCreateTime)
+                        .last("LIMIT " + MAX_UNPAGED_LIST_SIZE)
         );
         return notices.stream()
                 .map(n -> new ClientDtos.NoticeView(
@@ -202,6 +218,7 @@ public class ClientService {
         List<UserComment> comments = userCommentMapper.selectList(
                 new LambdaQueryWrapper<UserComment>()
                         .orderByDesc(UserComment::getCreateTime)
+                        .last("LIMIT " + MAX_UNPAGED_LIST_SIZE)
         );
         return comments.stream()
                 .map(this::toCommentView)
@@ -265,6 +282,7 @@ public class ClientService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请求体不能为空");
         }
         ensureStoreSupported(request.storeId());
+        ensureStoreOpen();
 
         Long tableId = parseLongId(request.tableId(), "tableId");
         Table table = tableMapper.selectById(tableId);
@@ -278,14 +296,14 @@ public class ClientService {
         }
 
         Set<Long> dishIds = new HashSet<>();
-        Map<Long, Integer> qtyByDishId = new HashMap<>();
+        Map<OrderLineKey, Integer> qtyByLineKey = new HashMap<>();
         for (ClientDtos.CreateOrderItemRequest item : items) {
             if (item == null || !StringUtils.hasText(item.dishId()) || item.qty() == null || item.qty() <= 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "订单明细不合法");
             }
             Long dishId = parseLongId(item.dishId(), "dishId");
             dishIds.add(dishId);
-            qtyByDishId.merge(dishId, item.qty(), Integer::sum);
+            qtyByLineKey.merge(new OrderLineKey(dishId, trimToNull(item.skuName())), item.qty(), Integer::sum);
         }
 
         Map<Long, Dish> dishMap = dishMapper.selectBatchIds(dishIds).stream()
@@ -317,8 +335,9 @@ public class ClientService {
         orderMapper.insert(order);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
-        for (Map.Entry<Long, Integer> entry : qtyByDishId.entrySet()) {
-            Dish dish = dishMap.get(entry.getKey());
+        for (Map.Entry<OrderLineKey, Integer> entry : qtyByLineKey.entrySet()) {
+            OrderLineKey lineKey = entry.getKey();
+            Dish dish = dishMap.get(lineKey.dishId());
             BigDecimal unitPrice = dish.getPrice() == null ? BigDecimal.ZERO : dish.getPrice();
             int qty = entry.getValue();
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(qty));
@@ -327,6 +346,7 @@ public class ClientService {
             OrderItem orderItem = new OrderItem();
             orderItem.setOrderId(order.getId());
             orderItem.setDishId(dish.getId());
+            orderItem.setSkuName(lineKey.skuName());
             orderItem.setQuantity(qty);
             orderItem.setUnitPrice(unitPrice);
             orderItem.setSubtotal(subtotal);
@@ -349,7 +369,7 @@ public class ClientService {
                         .orderByDesc(Order::getCreateTime)
                         .orderByDesc(Order::getId)
         );
-        return orders.stream().map(this::toOrderView).toList();
+        return toOrderViews(orders);
     }
 
     public ClientDtos.OrderView getOrder(String orderId) {
@@ -411,7 +431,7 @@ public class ClientService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        order.setStatus(ORDER_STATUS_PAID);
+        order.setStatus(getStoreSettings().autoAccept() ? ORDER_STATUS_COOKING : ORDER_STATUS_PAID);
         order.setUpdateTime(now);
         orderMapper.updateById(order);
 
@@ -472,7 +492,7 @@ public class ClientService {
             paymentMapper.updateById(payment);
         }
         if (order.getStatus() == null || order.getStatus() == ORDER_STATUS_PENDING_PAY) {
-            order.setStatus(ORDER_STATUS_PAID);
+            order.setStatus(getStoreSettings().autoAccept() ? ORDER_STATUS_COOKING : ORDER_STATUS_PAID);
             order.setUpdateTime(now);
             orderMapper.updateById(order);
         }
@@ -546,6 +566,7 @@ public class ClientService {
                                 .eq(SupportTicketRecord::getUserId, user.getId())
                                 .orderByDesc(SupportTicketRecord::getLastMessageAt)
                                 .orderByDesc(SupportTicketRecord::getId)
+                                .last("LIMIT " + MAX_UNPAGED_LIST_SIZE)
                 )
                 .stream()
                 .map(this::toSupportTicketView)
@@ -606,20 +627,65 @@ public class ClientService {
         return toSupportTicketMessageView(message);
     }
 
-    private ClientDtos.OrderView toOrderView(Order order) {
-        Table table = order.getTableId() == null ? null : tableMapper.selectById(order.getTableId());
-        List<OrderItem> orderItems = orderItemMapper.selectList(
-                new LambdaQueryWrapper<OrderItem>()
-                        .eq(OrderItem::getOrderId, order.getId())
-                        .orderByAsc(OrderItem::getId)
-        );
-        Set<Long> dishIds = orderItems.stream()
+    private List<ClientDtos.OrderView> toOrderViews(List<Order> orders) {
+        if (orders == null || orders.isEmpty()) {
+            return List.of();
+        }
+        StoreSettings settings = getStoreSettings();
+
+        Set<Long> tableIds = orders.stream()
+                .map(Order::getTableId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Table> tableMap = tableIds.isEmpty()
+                ? Map.of()
+                : nullToEmpty(tableMapper.selectBatchIds(tableIds)).stream()
+                        .collect(Collectors.toMap(Table::getId, table -> table));
+
+        Set<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toSet());
+        List<OrderItem> allOrderItems = orderIds.isEmpty()
+                ? List.of()
+                : nullToEmpty(orderItemMapper.selectList(
+                        new LambdaQueryWrapper<OrderItem>()
+                                .in(OrderItem::getOrderId, orderIds)
+                                .orderByAsc(OrderItem::getOrderId)
+                                .orderByAsc(OrderItem::getId)
+                ));
+        Map<Long, List<OrderItem>> orderItemsByOrderId = allOrderItems.stream()
+                .collect(Collectors.groupingBy(OrderItem::getOrderId));
+
+        Set<Long> dishIds = allOrderItems.stream()
                 .map(OrderItem::getDishId)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Map<Long, Dish> dishMap = dishIds.isEmpty()
                 ? Map.of()
-                : dishMapper.selectBatchIds(dishIds).stream().collect(Collectors.toMap(Dish::getId, dish -> dish));
+                : nullToEmpty(dishMapper.selectBatchIds(dishIds)).stream()
+                        .collect(Collectors.toMap(Dish::getId, dish -> dish));
 
+        return orders.stream()
+                .map(order -> toOrderView(
+                        order,
+                        settings,
+                        tableMap.get(order.getTableId()),
+                        orderItemsByOrderId.getOrDefault(order.getId(), List.of()),
+                        dishMap
+                ))
+                .toList();
+    }
+
+    private ClientDtos.OrderView toOrderView(Order order) {
+        return toOrderViews(List.of(order)).stream().findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "获取订单失败"));
+    }
+
+    private ClientDtos.OrderView toOrderView(
+            Order order,
+            StoreSettings settings,
+            Table table,
+            List<OrderItem> orderItems,
+            Map<Long, Dish> dishMap
+    ) {
         List<ClientDtos.OrderItemView> itemViews = orderItems.stream()
                 .map(item -> {
                     Dish dish = dishMap.get(item.getDishId());
@@ -627,6 +693,7 @@ public class ClientService {
                     return new ClientDtos.OrderItemView(
                             String.valueOf(item.getDishId()),
                             dishName,
+                            item.getSkuName(),
                             new ClientDtos.MoneyView(CURRENCY_CNY, toFen(item.getUnitPrice())),
                             item.getQuantity() == null ? 0 : item.getQuantity()
                     );
@@ -637,7 +704,7 @@ public class ClientService {
         LocalDateTime createdAt = order.getOrderTime() != null ? order.getOrderTime() : order.getCreateTime();
         return new ClientDtos.OrderView(
                 String.valueOf(order.getId()),
-                STORE_ID,
+                settings.storeId(),
                 order.getTableId() == null ? "" : String.valueOf(order.getTableId()),
                 tableName,
                 mapDbStatus(order.getStatus()),
@@ -646,6 +713,10 @@ public class ClientService {
                 order.getRemark(),
                 toIso(createdAt)
         );
+    }
+
+    private <T> List<T> nullToEmpty(List<T> value) {
+        return value == null ? List.of() : value;
     }
 
     private ClientDtos.DishView toDishView(Dish dish) {
@@ -803,8 +874,54 @@ public class ClientService {
     }
 
     private void ensureStoreSupported(String storeId) {
-        if (StringUtils.hasText(storeId) && !STORE_ID.equals(storeId.trim())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前仅支持 store_1");
+        StoreSettings settings = getStoreSettings();
+        if (StringUtils.hasText(storeId) && !settings.storeId().equals(storeId.trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前仅支持 " + settings.storeId());
+        }
+    }
+
+    private void ensureStoreOpen() {
+        if (systemSettingMapper == null) {
+            return;
+        }
+        StoreSettings settings = getStoreSettings();
+        LocalTime now = LocalTime.now();
+        LocalTime openTime = parseTime(settings.openTime(), DEFAULT_OPEN_TIME);
+        LocalTime closeTime = parseTime(settings.closeTime(), DEFAULT_CLOSE_TIME);
+        boolean open = closeTime.isAfter(openTime)
+                ? !now.isBefore(openTime) && now.isBefore(closeTime)
+                : !now.isBefore(openTime) || now.isBefore(closeTime);
+        if (!open) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "当前不在营业时间内");
+        }
+    }
+
+    private StoreSettings getStoreSettings() {
+        if (systemSettingMapper == null) {
+            return StoreSettings.defaults();
+        }
+        Map<String, String> settings = nullToEmpty(systemSettingMapper.selectList(new LambdaQueryWrapper<SystemSetting>()))
+                .stream()
+                .collect(Collectors.toMap(SystemSetting::getSettingKey, SystemSetting::getSettingValue, (a, b) -> a));
+        return new StoreSettings(
+                trimToDefault(settings.get(SETTING_STORE_ID), DEFAULT_STORE_ID),
+                trimToDefault(settings.get(SETTING_STORE_NAME), DEFAULT_STORE_NAME),
+                trimToDefault(settings.get(SETTING_OPEN_TIME), DEFAULT_OPEN_TIME),
+                trimToDefault(settings.get(SETTING_CLOSE_TIME), DEFAULT_CLOSE_TIME),
+                Boolean.parseBoolean(settings.getOrDefault(SETTING_AUTO_ACCEPT, "true"))
+        );
+    }
+
+    private String trimToDefault(String value, String defaultValue) {
+        String trimmed = trimToNull(value);
+        return trimmed == null ? defaultValue : trimmed;
+    }
+
+    private LocalTime parseTime(String value, String defaultValue) {
+        try {
+            return LocalTime.parse(value);
+        } catch (RuntimeException ignored) {
+            return LocalTime.parse(defaultValue);
         }
     }
 
@@ -851,12 +968,12 @@ public class ClientService {
 
     private String generateOrderNo(LocalDateTime now) {
         return "OD" + now.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                + ThreadLocalRandom.current().nextInt(100, 1000);
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
     }
 
     private String generatePaymentNo(LocalDateTime now) {
         return "PY" + now.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                + ThreadLocalRandom.current().nextInt(100, 1000);
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
     }
 
     private String mapDbStatus(Integer status) {
@@ -885,5 +1002,20 @@ public class ClientService {
             return null;
         }
         return time.atZone(ZoneId.systemDefault()).toInstant().toString();
+    }
+
+    private record OrderLineKey(Long dishId, String skuName) {
+    }
+
+    private record StoreSettings(
+            String storeId,
+            String storeName,
+            String openTime,
+            String closeTime,
+            boolean autoAccept
+    ) {
+        private static StoreSettings defaults() {
+            return new StoreSettings(DEFAULT_STORE_ID, DEFAULT_STORE_NAME, DEFAULT_OPEN_TIME, DEFAULT_CLOSE_TIME, true);
+        }
     }
 }

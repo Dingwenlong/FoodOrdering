@@ -108,9 +108,8 @@ Page({
     },
     loadCart() {
         return __awaiter(this, void 0, void 0, function* () {
-            const cartMap = (wx.getStorageSync(request_1.STORAGE_KEYS.cart) || {});
-            const dishIds = Object.keys(cartMap).filter((id) => Number(cartMap[id]) > 0);
-            if (dishIds.length === 0) {
+            const rawCart = wx.getStorageSync(request_1.STORAGE_KEYS.cart);
+            if (this.isCartEmpty(rawCart)) {
                 this.setData({ items: [], totalPrice: 0, payablePrice: 0, errorMsg: '' });
                 setTimeout(() => this.recalcLayout(), 0);
                 return;
@@ -134,7 +133,7 @@ Page({
                         updatedAt: Date.now(),
                     });
                 }
-                const items = this.buildItems(categories, cartMap);
+                const items = this.buildItems(categories, rawCart);
                 const totals = this.calcTotals(items);
                 this.setData({
                     items,
@@ -154,20 +153,61 @@ Page({
             }
         });
     },
-    buildItems(categories, cartMap) {
+    isCartEmpty(rawCart) {
+        if (Array.isArray(rawCart)) {
+            return rawCart.every((item) => Number((item === null || item === void 0 ? void 0 : item.qty) || 0) <= 0);
+        }
+        if (rawCart && typeof rawCart === 'object') {
+            return Object.keys(rawCart).every((id) => Number(rawCart[id]) <= 0);
+        }
+        return true;
+    },
+    makeCartKey(dishId, skuName = '') {
+        return `${dishId}::${skuName.trim()}`;
+    },
+    buildDishMap(categories) {
         const dishMap = {};
         categories.forEach((category) => {
             category.dishes.forEach((dish) => {
-                dishMap[dish.id] = { name: dish.name, priceFen: dish.priceFen };
+                dishMap[dish.id] = dish;
             });
         });
-        return Object.keys(cartMap)
-            .filter((dishId) => Number(cartMap[dishId]) > 0 && Boolean(dishMap[dishId]))
+        return dishMap;
+    },
+    buildItems(categories, rawCart) {
+        const dishMap = this.buildDishMap(categories);
+        if (Array.isArray(rawCart)) {
+            return rawCart
+                .map((item) => {
+                const dishId = String((item === null || item === void 0 ? void 0 : item.dishId) || '').trim();
+                const skuName = String((item === null || item === void 0 ? void 0 : item.skuName) || '').trim();
+                const qty = Number((item === null || item === void 0 ? void 0 : item.qty) || 0);
+                const dish = dishMap[dishId];
+                if (!dish || qty <= 0)
+                    return null;
+                return {
+                    cartKey: this.makeCartKey(dishId, skuName),
+                    dishId,
+                    dishName: dish.name,
+                    unitPriceFen: dish.priceFen,
+                    qty,
+                    skuName,
+                };
+            })
+                .filter(Boolean);
+        }
+        if (!rawCart || typeof rawCart !== 'object') {
+            return [];
+        }
+        return Object.keys(rawCart)
+            .filter((dishId) => Number(rawCart[dishId]) > 0 && Boolean(dishMap[dishId]))
             .map((dishId) => ({
+            cartKey: this.makeCartKey(dishId),
             dishId,
             dishName: dishMap[dishId].name,
             unitPriceFen: dishMap[dishId].priceFen,
-            qty: Number(cartMap[dishId]),
+            qty: Number(rawCart[dishId]),
+            skuName: '',
         }));
     },
     calcTotals(items) {
@@ -175,13 +215,13 @@ Page({
         return { totalPrice };
     },
     updateQty(e) {
-        const id = String(e.currentTarget.dataset.id || '');
+        const key = String(e.currentTarget.dataset.key || '');
         const delta = Number(e.currentTarget.dataset.delta || 0);
-        if (!id || !delta)
+        if (!key || !delta)
             return;
         const items = this.data.items
             .map((item) => {
-            if (item.dishId !== id)
+            if (item.cartKey !== key)
                 return item;
             return Object.assign(Object.assign({}, item), { qty: item.qty + delta });
         })
@@ -195,27 +235,7 @@ Page({
         this.syncCartStorage(items);
     },
     syncCartStorage(items) {
-        const cartMap = {};
-        items.forEach((item) => {
-            cartMap[item.dishId] = item.qty;
-        });
-        wx.setStorageSync(request_1.STORAGE_KEYS.cart, cartMap);
-    },
-    clearCart() {
-        wx.showModal({
-            title: '清空购物车',
-            content: '确认清空当前已选菜品吗？',
-            success: (res) => {
-                if (!res.confirm)
-                    return;
-                wx.removeStorageSync(request_1.STORAGE_KEYS.cart);
-                this.setData({
-                    items: [],
-                    totalPrice: 0,
-                    payablePrice: 0,
-                });
-            },
-        });
+        wx.setStorageSync(request_1.STORAGE_KEYS.cart, items);
     },
     handleRemarkInput(e) {
         var _a;
@@ -243,6 +263,7 @@ Page({
                     items: this.data.items.map((item) => ({
                         dishId: item.dishId,
                         qty: item.qty,
+                        skuName: item.skuName || undefined,
                     })),
                     remark: this.data.remark.trim(),
                 };

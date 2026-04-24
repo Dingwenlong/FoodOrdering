@@ -1,7 +1,5 @@
 import { request, STORAGE_KEYS } from '../../utils/request';
-import type { CartItem, Category, CreateOrderPayload, MenuResult, Order } from '../../types/index';
-
-type CartMap = Record<string, number>;
+import type { CartItem, Category, CreateOrderPayload, Dish, MenuResult, Order } from '../../types/index';
 
 Page({
   data: {
@@ -113,10 +111,9 @@ Page({
   },
 
   async loadCart() {
-    const cartMap = (wx.getStorageSync(STORAGE_KEYS.cart) || {}) as CartMap;
-    const dishIds = Object.keys(cartMap).filter((id) => Number(cartMap[id]) > 0);
+    const rawCart = wx.getStorageSync(STORAGE_KEYS.cart);
 
-    if (dishIds.length === 0) {
+    if (this.isCartEmpty(rawCart)) {
       this.setData({ items: [], totalPrice: 0, payablePrice: 0, errorMsg: '' });
       setTimeout(() => this.recalcLayout(), 0);
       return;
@@ -143,7 +140,7 @@ Page({
         });
       }
 
-      const items = this.buildItems(categories, cartMap);
+      const items = this.buildItems(categories, rawCart);
       const totals = this.calcTotals(items);
       this.setData({
         items,
@@ -162,21 +159,66 @@ Page({
     }
   },
 
-  buildItems(categories: Category[], cartMap: CartMap): CartItem[] {
-    const dishMap: Record<string, { name: string; priceFen: number }> = {};
+  isCartEmpty(rawCart: unknown): boolean {
+    if (Array.isArray(rawCart)) {
+      return rawCart.every((item: any) => Number(item?.qty || 0) <= 0);
+    }
+    if (rawCart && typeof rawCart === 'object') {
+      return Object.keys(rawCart as Record<string, number>).every((id) => Number((rawCart as Record<string, number>)[id]) <= 0);
+    }
+    return true;
+  },
+
+  makeCartKey(dishId: string, skuName = '') {
+    return `${dishId}::${skuName.trim()}`;
+  },
+
+  buildDishMap(categories: Category[]) {
+    const dishMap: Record<string, Dish> = {};
     categories.forEach((category) => {
       category.dishes.forEach((dish) => {
-        dishMap[dish.id] = { name: dish.name, priceFen: dish.priceFen };
+        dishMap[dish.id] = dish;
       });
     });
+    return dishMap;
+  },
 
-    return Object.keys(cartMap)
-      .filter((dishId) => Number(cartMap[dishId]) > 0 && Boolean(dishMap[dishId]))
+  buildItems(categories: Category[], rawCart: unknown): CartItem[] {
+    const dishMap = this.buildDishMap(categories);
+
+    if (Array.isArray(rawCart)) {
+      return rawCart
+        .map((item: any) => {
+          const dishId = String(item?.dishId || '').trim();
+          const skuName = String(item?.skuName || '').trim();
+          const qty = Number(item?.qty || 0);
+          const dish = dishMap[dishId];
+          if (!dish || qty <= 0) return null;
+          return {
+            cartKey: this.makeCartKey(dishId, skuName),
+            dishId,
+            dishName: dish.name,
+            unitPriceFen: dish.priceFen,
+            qty,
+            skuName,
+          } as CartItem;
+        })
+        .filter(Boolean) as CartItem[];
+    }
+
+    if (!rawCart || typeof rawCart !== 'object') {
+      return [];
+    }
+
+    return Object.keys(rawCart as Record<string, number>)
+      .filter((dishId) => Number((rawCart as Record<string, number>)[dishId]) > 0 && Boolean(dishMap[dishId]))
       .map((dishId) => ({
+        cartKey: this.makeCartKey(dishId),
         dishId,
         dishName: dishMap[dishId].name,
         unitPriceFen: dishMap[dishId].priceFen,
-        qty: Number(cartMap[dishId]),
+        qty: Number((rawCart as Record<string, number>)[dishId]),
+        skuName: '',
       }));
   },
 
@@ -186,13 +228,13 @@ Page({
   },
 
   updateQty(e: WechatMiniprogram.BaseEvent) {
-    const id = String(e.currentTarget.dataset.id || '');
+    const key = String(e.currentTarget.dataset.key || '');
     const delta = Number(e.currentTarget.dataset.delta || 0);
-    if (!id || !delta) return;
+    if (!key || !delta) return;
 
     const items = this.data.items
       .map((item) => {
-        if (item.dishId !== id) return item;
+        if (item.cartKey !== key) return item;
         return { ...item, qty: item.qty + delta };
       })
       .filter((item) => item.qty > 0);
@@ -208,11 +250,7 @@ Page({
   },
 
   syncCartStorage(items: CartItem[]) {
-    const cartMap: CartMap = {};
-    items.forEach((item) => {
-      cartMap[item.dishId] = item.qty;
-    });
-    wx.setStorageSync(STORAGE_KEYS.cart, cartMap);
+    wx.setStorageSync(STORAGE_KEYS.cart, items);
   },
 
 
@@ -244,6 +282,7 @@ Page({
         items: this.data.items.map((item) => ({
           dishId: item.dishId,
           qty: item.qty,
+          skuName: item.skuName || undefined,
         })),
         remark: this.data.remark.trim(),
       };

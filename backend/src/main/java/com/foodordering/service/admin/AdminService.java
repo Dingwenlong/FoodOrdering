@@ -1,6 +1,7 @@
 package com.foodordering.service.admin;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.foodordering.auth.AdminAuthorizationService;
 import com.foodordering.auth.AdminJwtTokenService;
@@ -62,6 +63,7 @@ public class AdminService {
 
     private static final String STORE_ID = "store_1";
     private static final String CURRENCY_CNY = "CNY";
+    private static final int MAX_UNPAGED_LIST_SIZE = 200;
     private static final Map<String, Integer> API_TO_DB_STATUS = Map.of(
             "PENDING_PAY", 0,
             "PAID", 1,
@@ -334,6 +336,7 @@ public class AdminService {
                 new LambdaQueryWrapper<AdminNotice>()
                         .orderByDesc(AdminNotice::getIsPinned)
                         .orderByDesc(AdminNotice::getCreateTime)
+                        .last("LIMIT " + MAX_UNPAGED_LIST_SIZE)
         );
         return notices.stream().map(this::toNoticeView).toList();
     }
@@ -378,6 +381,7 @@ public class AdminService {
         List<User> users = userMapper.selectList(
                 new LambdaQueryWrapper<User>()
                         .orderByDesc(User::getCreateTime)
+                        .last("LIMIT " + MAX_UNPAGED_LIST_SIZE)
         );
         if (users.isEmpty()) {
             return List.of();
@@ -841,29 +845,23 @@ public class AdminService {
     }
 
     public List<AdminDtos.DishSalesView> getDishSales() {
-        List<Order> validOrders = orderMapper.selectList(
-                new LambdaQueryWrapper<Order>()
-                        .ne(Order::getStatus, 4)
+        List<Map<String, Object>> rows = orderItemMapper.selectMaps(
+                new QueryWrapper<OrderItem>()
+                        .select("dish_id AS dishId", "SUM(quantity) AS soldQty")
+                        .inSql("order_id", "SELECT id FROM orders WHERE status <> 4")
+                        .groupBy("dish_id")
+                        .orderByDesc("soldQty")
         );
-        if (validOrders.isEmpty()) {
+        if (rows.isEmpty()) {
             return List.of();
         }
 
-        Set<Long> orderIds = validOrders.stream().map(Order::getId).collect(Collectors.toSet());
-        List<OrderItem> orderItems = orderItemMapper.selectList(
-                new LambdaQueryWrapper<OrderItem>().in(OrderItem::getOrderId, orderIds)
-        );
-        if (orderItems.isEmpty()) {
-            return List.of();
-        }
-
-        Map<Long, Long> soldQtyMap = orderItems.stream()
-                .collect(Collectors.groupingBy(
-                        OrderItem::getDishId,
-                        Collectors.summingLong(item -> item.getQuantity() == null ? 0 : item.getQuantity())
+        Map<Long, Long> soldQtyMap = rows.stream()
+                .collect(Collectors.toMap(
+                        row -> asLong(mapValue(row, "dishId")),
+                        row -> asLong(mapValue(row, "soldQty"))
                 ));
-
-        Set<Long> dishIds = soldQtyMap.keySet();
+        Set<Long> dishIds = new HashSet<>(soldQtyMap.keySet());
         Map<Long, Dish> dishMap = dishMapper.selectBatchIds(dishIds).stream()
                 .collect(Collectors.toMap(Dish::getId, Function.identity()));
 
@@ -882,16 +880,17 @@ public class AdminService {
     }
 
     public AdminDtos.StatsSummaryView getStatsSummary(String from, String to) {
-        List<Order> orders = listOrdersInRange(from, to);
-        List<Order> paidOrders = orders.stream()
-                .filter(order -> order.getStatus() != null && order.getStatus() >= 1 && order.getStatus() <= 3)
-                .toList();
-        BigDecimal revenue = paidOrders.stream()
-                .map(Order::getTotalAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        long orderCount = orders.size();
-        long paidOrderCount = paidOrders.size();
+        QueryWrapper<Order> query = new QueryWrapper<Order>()
+                .select(
+                        "COUNT(*) AS orderCount",
+                        "COALESCE(SUM(CASE WHEN status BETWEEN 1 AND 3 THEN 1 ELSE 0 END), 0) AS paidOrderCount",
+                        "COALESCE(SUM(CASE WHEN status BETWEEN 1 AND 3 THEN total_amount ELSE 0 END), 0) AS revenue"
+                );
+        applyOrderTimeRange(query, from, to);
+        Map<String, Object> row = orderMapper.selectMaps(query).stream().findFirst().orElse(Map.of());
+        BigDecimal revenue = asBigDecimal(mapValue(row, "revenue"));
+        long orderCount = asLong(mapValue(row, "orderCount"));
+        long paidOrderCount = asLong(mapValue(row, "paidOrderCount"));
         BigDecimal average = paidOrderCount == 0
                 ? BigDecimal.ZERO
                 : revenue.divide(BigDecimal.valueOf(paidOrderCount), 2, RoundingMode.HALF_UP);
@@ -906,31 +905,36 @@ public class AdminService {
     }
 
     public List<AdminDtos.StatsTrendPointView> getStatsTrend(String from, String to) {
-        List<Order> orders = listOrdersInRange(from, to);
         LocalDate startDate = parseDateOrDefault(from, LocalDate.now().minusDays(6));
         LocalDate endDate = parseDateOrDefault(to, LocalDate.now());
         if (endDate.isBefore(startDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "结束日期不能早于开始日期");
         }
-        Map<LocalDate, List<Order>> byDate = orders.stream()
-                .filter(order -> order.getOrderTime() != null)
-                .collect(Collectors.groupingBy(order -> order.getOrderTime().toLocalDate()));
+        QueryWrapper<Order> query = new QueryWrapper<Order>()
+                .select(
+                        "DATE(order_time) AS orderDate",
+                        "COUNT(*) AS orderCount",
+                        "COALESCE(SUM(CASE WHEN status BETWEEN 1 AND 3 THEN 1 ELSE 0 END), 0) AS paidOrderCount",
+                        "COALESCE(SUM(CASE WHEN status BETWEEN 1 AND 3 THEN total_amount ELSE 0 END), 0) AS revenue"
+                )
+                .isNotNull("order_time")
+                .groupBy("DATE(order_time)")
+                .orderByAsc("orderDate");
+        applyOrderTimeRange(query, from, to);
+        Map<LocalDate, Map<String, Object>> rowsByDate = orderMapper.selectMaps(query).stream()
+                .collect(Collectors.toMap(
+                        row -> asLocalDate(mapValue(row, "orderDate")),
+                        row -> row
+                ));
 
         List<AdminDtos.StatsTrendPointView> result = new ArrayList<>();
         for (LocalDate cursor = startDate; !cursor.isAfter(endDate); cursor = cursor.plusDays(1)) {
-            List<Order> dayOrders = byDate.getOrDefault(cursor, List.of());
-            List<Order> paidOrders = dayOrders.stream()
-                    .filter(order -> order.getStatus() != null && order.getStatus() >= 1 && order.getStatus() <= 3)
-                    .toList();
-            BigDecimal revenue = paidOrders.stream()
-                    .map(Order::getTotalAmount)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            Map<String, Object> row = rowsByDate.getOrDefault(cursor, Map.of());
             result.add(new AdminDtos.StatsTrendPointView(
                     cursor.toString(),
-                    new AdminDtos.MoneyView(CURRENCY_CNY, toFen(revenue)),
-                    dayOrders.size(),
-                    paidOrders.size()
+                    new AdminDtos.MoneyView(CURRENCY_CNY, toFen(asBigDecimal(mapValue(row, "revenue")))),
+                    asLong(mapValue(row, "orderCount")),
+                    asLong(mapValue(row, "paidOrderCount"))
             ));
         }
         return result;
@@ -1017,6 +1021,7 @@ public class AdminService {
         List<UserComment> comments = userCommentMapper.selectList(
                 new LambdaQueryWrapper<UserComment>()
                         .orderByDesc(UserComment::getCreateTime)
+                        .last("LIMIT " + MAX_UNPAGED_LIST_SIZE)
         );
         return comments.stream()
                 .map(c -> new AdminDtos.CommentView(
@@ -1035,6 +1040,7 @@ public class AdminService {
         List<UserFeedback> feedbacks = userFeedbackMapper.selectList(
                 new LambdaQueryWrapper<UserFeedback>()
                         .orderByDesc(UserFeedback::getCreateTime)
+                        .last("LIMIT " + MAX_UNPAGED_LIST_SIZE)
         );
         return feedbacks.stream().map(this::toFeedbackView).toList();
     }
@@ -1059,6 +1065,7 @@ public class AdminService {
         List<SupportTicketRecord> tickets = supportTicketRecordMapper.selectList(
                 new LambdaQueryWrapper<SupportTicketRecord>()
                         .orderByDesc(SupportTicketRecord::getLastMessageAt)
+                        .last("LIMIT " + MAX_UNPAGED_LIST_SIZE)
         );
         return tickets.stream().map(this::toSupportTicketView).toList();
     }
@@ -1243,6 +1250,7 @@ public class AdminService {
         Map<Long, Dish> dishMap = dishIds.isEmpty()
                 ? Map.of()
                 : dishMapper.selectBatchIds(dishIds).stream().collect(Collectors.toMap(Dish::getId, Function.identity()));
+        String storeId = getSystemSettings().storeId();
 
         return orders.stream().map(order -> {
             List<OrderItem> items = orderItemMap.getOrDefault(order.getId(), List.of());
@@ -1253,7 +1261,7 @@ public class AdminService {
                         String.valueOf(item.getDishId()),
                         dishName,
                         null,
-                        null,
+                        item.getSkuName(),
                         new AdminDtos.MoneyView(CURRENCY_CNY, toFen(item.getUnitPrice())),
                         item.getQuantity() == null ? 0 : item.getQuantity()
                 );
@@ -1279,7 +1287,7 @@ public class AdminService {
             return new AdminDtos.OrderView(
                     String.valueOf(order.getId()),
                     order.getOrderNo(),
-                    STORE_ID,
+                    storeId,
                     order.getTableId() == null ? "" : String.valueOf(order.getTableId()),
                     tableName,
                     mapDbStatusToApi(order.getStatus()),
@@ -1512,17 +1520,69 @@ public class AdminService {
         return trimmed == null ? null : parseDateOrDefault(trimmed, null).plusDays(1).atStartOfDay().minusNanos(1);
     }
 
-    private List<Order> listOrdersInRange(String from, String to) {
-        LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>().orderByAsc(Order::getOrderTime);
+    private void applyOrderTimeRange(QueryWrapper<Order> query, String from, String to) {
         LocalDateTime fromTime = parseDateStartOrNull(from);
         if (fromTime != null) {
-            query.ge(Order::getOrderTime, fromTime);
+            query.ge("order_time", fromTime);
         }
         LocalDateTime toTime = parseDateEndOrNull(to);
         if (toTime != null) {
-            query.le(Order::getOrderTime, toTime);
+            query.le("order_time", toTime);
         }
-        return orderMapper.selectList(query);
+    }
+
+    private Object mapValue(Map<String, Object> row, String key) {
+        if (row == null || row.isEmpty()) {
+            return null;
+        }
+        if (row.containsKey(key)) {
+            return row.get(key);
+        }
+        String upperKey = key.toUpperCase();
+        if (row.containsKey(upperKey)) {
+            return row.get(upperKey);
+        }
+        return row.entrySet().stream()
+                .filter(entry -> entry.getKey() != null && entry.getKey().equalsIgnoreCase(key))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private long asLong(Object value) {
+        if (value == null) {
+            return 0L;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(String.valueOf(value));
+    }
+
+    private BigDecimal asBigDecimal(Object value) {
+        if (value == null) {
+            return BigDecimal.ZERO;
+        }
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return new BigDecimal(String.valueOf(value));
+    }
+
+    private LocalDate asLocalDate(Object value) {
+        if (value instanceof LocalDate date) {
+            return date;
+        }
+        if (value instanceof LocalDateTime dateTime) {
+            return dateTime.toLocalDate();
+        }
+        if (value instanceof java.sql.Date date) {
+            return date.toLocalDate();
+        }
+        return LocalDate.parse(String.valueOf(value));
     }
 
     private void upsertSetting(String key, String value, String description) {

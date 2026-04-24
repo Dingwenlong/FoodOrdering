@@ -21,7 +21,7 @@ FoodOrdering/
 
 - 管理端：`Vue 3`、`Vite`、`TypeScript`、`Pinia`、`Vue Router`、`Tailwind CSS`
 - 后端：`Java 25`、`Spring Boot 2.7.18`、`MyBatis-Plus 3.5.3.1`
-- 数据层：当前默认 `H2 内存库`（已预置 `schema.sql` + `data.sql`）
+- 数据层：当前默认 `H2 内存库`，通过 Flyway 执行 `db/migration` 下的版本化迁移
 - 基础设施（可选）：`MySQL`、`Redis`、`RabbitMQ`（由 `docker-compose.yml` 提供）
 
 ## 3. API 约定（已统一）
@@ -163,12 +163,12 @@ docker compose up -d
 
 `docker-compose.yml` 暴露端口：
 
-- MySQL: `3306`
-- Redis: `6379`
-- RabbitMQ: `5672`
-- RabbitMQ 管理台: `15672`
+- MySQL: `23306`
+- Redis: `26379`
+- RabbitMQ: `25672`
+- RabbitMQ 管理台: `25673`
 
-说明：当前 `backend/src/main/resources/application.yml` 默认排除了 Redis 与 RabbitMQ 自动配置，并使用 H2。切换到中间件前，需要同步调整该配置。
+说明：当前 `backend/src/main/resources/application.yml` 默认排除了 Redis 与 RabbitMQ 自动配置，并使用 H2。数据库结构和种子数据由 Flyway 管理；切换到 MySQL 时建议使用 `prod` 配置或同步调整 datasource。
 
 ## 8. 关键源码位置
 
@@ -180,7 +180,8 @@ docker compose up -d
 - 后端响应/异常处理：`backend/src/main/java/com/foodordering/config/ApiResponseAdvice.java`、`backend/src/main/java/com/foodordering/config/GlobalExceptionHandler.java`
 - 后端管理端授权：`backend/src/main/java/com/foodordering/auth/AdminAuthorize.java`、`backend/src/main/java/com/foodordering/auth/AdminAuthorizationService.java`
 - 后端配置：`backend/src/main/resources/application.yml`
-- 后端建表脚本：`backend/src/main/resources/schema.sql`
+- 后端建表脚本：`backend/src/main/resources/schema.sql`（兼容参考）
+- 后端数据库迁移：`backend/src/main/resources/db/migration`
 - 小程序请求封装：`miniprogram/utils/request.ts`
 - 小程序页面配置：`miniprogram/app.json`
 - 需求/架构文档：`.trae/documents/`

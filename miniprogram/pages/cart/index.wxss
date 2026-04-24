@@ -65,11 +65,19 @@
   font-size: 30rpx;
   font-weight: bold;
   color: #fff;
-  margin-bottom: 12rpx;
+  margin-bottom: 8rpx;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sku-name {
+  display: block;
+  margin-bottom: 12rpx;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 24rpx;
+  line-height: 1.35;
 }
 
 .price-wrap {

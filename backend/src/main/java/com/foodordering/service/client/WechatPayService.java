@@ -2,10 +2,13 @@ package com.foodordering.service.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.foodordering.dto.client.ClientDtos;
 import com.foodordering.entity.Order;
 import com.foodordering.entity.Payment;
+import com.foodordering.entity.SystemSetting;
 import com.foodordering.entity.User;
+import com.foodordering.mapper.SystemSettingMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -44,8 +47,11 @@ public class WechatPayService {
     private static final String WECHAT_PAY_HOST = "https://api.mch.weixin.qq.com";
     private static final String JSAPI_PATH = "/v3/pay/transactions/jsapi";
     private static final String SIGN_TYPE_RSA = "RSA";
+    private static final String DEFAULT_STORE_NAME = "未来餐厅";
+    private static final String SETTING_STORE_NAME = "storeName";
 
     private final ObjectMapper objectMapper;
+    private final SystemSettingMapper systemSettingMapper;
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final String mode;
     private final String appId;
@@ -59,6 +65,7 @@ public class WechatPayService {
 
     public WechatPayService(
             ObjectMapper objectMapper,
+            SystemSettingMapper systemSettingMapper,
             @Value("${app.pay.wechat.mode:mock}") String mode,
             @Value("${app.wechat.app-id:}") String appId,
             @Value("${app.pay.wechat.mch-id:}") String mchId,
@@ -70,6 +77,7 @@ public class WechatPayService {
             @Value("${app.pay.wechat.platform-serial-no:}") String platformSerialNo
     ) {
         this.objectMapper = objectMapper;
+        this.systemSettingMapper = systemSettingMapper;
         this.mode = mode == null ? "mock" : mode.trim().toLowerCase();
         this.appId = appId;
         this.mchId = mchId;
@@ -195,7 +203,7 @@ public class WechatPayService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("appid", appId.trim());
         payload.put("mchid", mchId.trim());
-        payload.put("description", "未来餐厅订单 " + order.getOrderNo());
+        payload.put("description", getStoreName() + "订单 " + order.getOrderNo());
         payload.put("out_trade_no", order.getOrderNo());
         payload.put("notify_url", notifyUrl.trim());
         payload.put("amount", amount);
@@ -206,6 +214,14 @@ public class WechatPayService {
         } catch (IOException ex) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "微信支付请求构建失败");
         }
+    }
+
+    private String getStoreName() {
+        SystemSetting setting = systemSettingMapper.selectOne(
+                new LambdaQueryWrapper<SystemSetting>().eq(SystemSetting::getSettingKey, SETTING_STORE_NAME)
+        );
+        String storeName = setting == null ? null : setting.getSettingValue();
+        return StringUtils.hasText(storeName) ? storeName.trim() : DEFAULT_STORE_NAME;
     }
 
     private String buildAuthorization(String method, String path, String timestamp, String nonce, String body) {

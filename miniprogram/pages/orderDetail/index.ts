@@ -1,7 +1,5 @@
-import { request, shouldUseMock, STORAGE_KEYS } from '../../utils/request';
+import { request, STORAGE_KEYS } from '../../utils/request';
 import type { Order, PrepayPayload, PrepayResult, UrgeOrderResult } from '../../types/index';
-
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 Page({
   data: {
@@ -31,6 +29,7 @@ Page({
       return;
     }
     (this as any).currentOrderId = orderId;
+    (this as any).allowSocketReconnect = true;
     this.fetchOrder(orderId);
     this.initWebSocket();
   },
@@ -47,13 +46,14 @@ Page({
   },
 
   onUnload() {
+    (this as any).allowSocketReconnect = false;
     this.closeWebSocket();
   },
 
   initWebSocket() {
     try {
-      const BASE_URL = (wx.getStorageSync('MP_API_BASE_URL') as string) || 'http://localhost:8080';
-      const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/ws/menu';
+      const BASE_URL = String(wx.getStorageSync('MP_API_BASE_URL') || 'http://localhost:8080').replace(/\/+$/, '');
+      const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/api/ws/menu';
       console.log('连接 WebSocket (订单详情):', wsUrl);
 
       const socketTask = wx.connectSocket({
@@ -87,8 +87,13 @@ Page({
       });
 
       socketTask.onClose(() => {
+        if (!(this as any).allowSocketReconnect) return;
         console.log('WebSocket 连接已关闭 (订单详情)，5秒后重连...');
-        setTimeout(() => this.initWebSocket(), 5000);
+        setTimeout(() => {
+          if ((this as any).allowSocketReconnect) {
+            this.initWebSocket();
+          }
+        }, 5000);
       });
     } catch (e) {
       console.error('初始化 WebSocket 失败 (订单详情):', e);
@@ -96,6 +101,7 @@ Page({
   },
 
   closeWebSocket() {
+    (this as any).allowSocketReconnect = false;
     const socketTask = (this as any).wsSocketTask;
     if (socketTask) {
       try {
@@ -208,10 +214,9 @@ Page({
         data: payload,
       });
 
-      if (shouldUseMock()) {
+      const payParams = prepayRes.data;
+      if (String(payParams.paySign || '').startsWith('mock-sign-')) {
         wx.showLoading({ title: '支付处理中...' });
-        await wait(900);
-
         const confirmRes = await request<Order>({
           url: '/pay/wechat/confirm',
           method: 'POST',
@@ -225,7 +230,6 @@ Page({
         return;
       }
 
-      const payParams = prepayRes.data;
       await new Promise<void>((resolve, reject) => {
         wx.requestPayment({
           timeStamp: payParams.timeStamp,
@@ -401,5 +405,9 @@ Page({
     wx.redirectTo({
       url: `/pages/menu/index?storeId=${session.storeId}&tableId=${session.tableId}`,
     });
+  },
+
+  goSupport() {
+    wx.navigateTo({ url: '/pages/support/index' });
   },
 });

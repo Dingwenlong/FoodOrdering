@@ -1,76 +1,49 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const request_1 = require("../../utils/request");
 Page({
     data: {
-        storeId: '',
-        tableId: '',
-        storeName: '未来餐厅',
+        loading: true,
+        errorMsg: '',
         tableName: '',
+        orderCount: 0,
         notices: [],
-        dishes: [],
+        selectedNotice: null,
         comments: [],
-        loading: false,
     },
     onLoad() {
+        console.log('首页加载');
         const session = wx.getStorageSync(request_1.STORAGE_KEYS.session);
         if (session) {
+            this.setData({ tableName: session.tableName });
+        }
+        this.fetchData();
+    },
+    async fetchData() {
+        try {
+            this.setData({ loading: true, errorMsg: '' });
+            const [noticeRes, commentsRes] = await Promise.all([
+                (0, request_1.request)({ url: '/notices', method: 'GET' }),
+                (0, request_1.request)({ url: '/comments?limit=3', method: 'GET' }),
+            ]);
+            console.log('公告数据:', noticeRes);
+            console.log('评论数据:', commentsRes);
             this.setData({
-                storeId: session.storeId || '',
-                storeName: session.storeName || '未来餐厅',
-                tableId: session.tableId || '',
-                tableName: session.tableName || '',
+                notices: noticeRes.data || [],
+                comments: commentsRes.data || [],
+                loading: false
             });
         }
-        else {
-            wx.reLaunch({ url: '/pages/scan/index' });
-            return;
+        catch (err) {
+            console.error('获取数据失败:', err);
+            this.setData({
+                errorMsg: '获取数据失败，请重试',
+                loading: false
+            });
         }
-        this.fetchHomeData();
-    },
-    onPullDownRefresh() {
-        this.fetchHomeData().then(() => {
-            wx.stopPullDownRefresh();
-        });
-    },
-    fetchHomeData() {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.setData({ loading: true });
-            try {
-                const [noticeRes, menuRes, commentRes] = yield Promise.all([
-                    (0, request_1.request)({ url: '/notices', method: 'GET' }),
-                    (0, request_1.request)({ url: '/menu', method: 'GET' }),
-                    (0, request_1.request)({ url: '/comments', method: 'GET' }),
-                ]);
-                const allDishes = menuRes.data.categories.flatMap((cat) => cat.dishes);
-                this.setData({
-                    notices: noticeRes.data || [],
-                    dishes: allDishes,
-                    comments: commentRes.data || [],
-                });
-            }
-            catch (err) {
-                console.error('Fetch home data failed:', err);
-                wx.showToast({ title: '加载数据失败', icon: 'none' });
-            }
-            finally {
-                this.setData({ loading: false });
-            }
-        });
     },
     goMenu() {
-        wx.navigateTo({
-            url: `/pages/menu/index?storeId=${this.data.storeId}&tableId=${this.data.tableId}`,
-        });
+        wx.navigateTo({ url: '/pages/menu/index' });
     },
     goOrders() {
         wx.navigateTo({ url: '/pages/orders/index' });
@@ -78,4 +51,18 @@ Page({
     goSupport() {
         wx.navigateTo({ url: '/pages/support/index' });
     },
+    openNotice(e) {
+        const id = String(e.currentTarget.dataset.id || '');
+        const notice = this.data.notices.find((item) => String(item.id) === id);
+        if (notice) {
+            this.setData({ selectedNotice: notice });
+        }
+    },
+    closeNotice() {
+        this.setData({ selectedNotice: null });
+    },
+    noop() { },
+    goScan() {
+        wx.navigateTo({ url: '/pages/scan/index' });
+    }
 });

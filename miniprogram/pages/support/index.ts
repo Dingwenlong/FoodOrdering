@@ -66,7 +66,13 @@ Page({
       });
       this.setData({ topic: '', content: '' });
       wx.showToast({ title: '已提交', icon: 'success' });
-      wx.navigateTo({ url: `/pages/supportDetail/index?id=${res.data.id}` });
+      const ticketId = String(res.data?.id || '').trim();
+      if (!ticketId) {
+        await this.fetchTickets();
+        wx.showToast({ title: '已提交，请在我的工单中查看', icon: 'none' });
+        return;
+      }
+      this.openSupportDetail(ticketId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '提交失败';
       this.setData({ errorMsg: msg });
@@ -79,6 +85,24 @@ Page({
   openTicket(e: WechatMiniprogram.BaseEvent) {
     const id = String(e.currentTarget.dataset.id || '');
     if (!id) return;
-    wx.navigateTo({ url: `/pages/supportDetail/index?id=${id}` });
+    this.openSupportDetail(id);
+  },
+
+  openSupportDetail(id: string) {
+    const ticketId = String(id || '').trim();
+    if (!ticketId) return;
+    const url = `/pages/supportDetail/index?id=${encodeURIComponent(ticketId)}`;
+    wx.navigateTo({
+      url,
+      fail: () => {
+        wx.redirectTo({
+          url,
+          fail: () => {
+            this.fetchTickets();
+            wx.showToast({ title: '工单已提交，请从列表进入', icon: 'none' });
+          },
+        });
+      },
+    });
   },
 });

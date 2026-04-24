@@ -14,6 +14,7 @@ public class OrderItem {
     private Long id;
     private Long orderId;
     private Long dishId;
+    private String skuName;
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
@@ -25,6 +26,8 @@ public class OrderItem {
     public void setOrderId(Long orderId) { this.orderId = orderId; }
     public Long getDishId() { return dishId; }
     public void setDishId(Long dishId) { this.dishId = dishId; }
+    public String getSkuName() { return skuName; }
+    public void setSkuName(String skuName) { this.skuName = skuName; }
     public Integer getQuantity() { return quantity; }
     public void setQuantity(Integer quantity) { this.quantity = quantity; }
     public BigDecimal getUnitPrice() { return unitPrice; }

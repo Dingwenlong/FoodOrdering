@@ -37,8 +37,11 @@
       <view class="order-info glass-card">
         <view class="section-title">订单明细</view>
         <view class="item-list">
-          <view wx:for="{{order.items}}" wx:key="dishId" class="order-item">
-            <text class="item-name">{{item.dishName}}</text>
+          <view wx:for="{{order.items}}" wx:key="cartKey" class="order-item">
+            <view class="item-main">
+              <text class="item-name">{{item.dishName}}</text>
+              <text class="item-sku" wx:if="{{item.skuName}}">{{item.skuName}}</text>
+            </view>
             <text class="item-qty">x{{item.qty}}</text>
             <text class="item-price price-font">¥{{item.unitPriceFen * item.qty / 100}}</text>
           </view>
@@ -127,6 +130,11 @@
         >
           立即支付 ¥{{order.totalPriceFen / 100}}
         </button>
+        <button
+          class="support-btn full-row"
+          bindtap="goSupport"
+          disabled="{{paying}}"
+        >联系客服</button>
       </view>
     </view>
 
@@ -139,6 +147,7 @@
           bindtap="handleUrge"
           loading="{{urgeLoading}}"
         >催单</button>
+        <button class="support-btn {{order.status === 'PAID' || order.status === 'COOKING' ? 'full-row' : ''}}" bindtap="goSupport">联系客服</button>
       </view>
     </view>
   </block>

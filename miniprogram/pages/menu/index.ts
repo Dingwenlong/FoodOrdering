@@ -1,7 +1,7 @@
 import { request, STORAGE_KEYS } from '../../utils/request';
-import type { Category, Dish, MenuResult } from '../../types/index';
+import type { CartItem, Category, Dish, MenuResult } from '../../types/index';
 
-type CartMap = Record<string, number>;
+type DishCountMap = Record<string, number>;
 type SpecGroup = {
   key: string;
   label: string;
@@ -43,7 +43,8 @@ Page({
     toView: '',
     sectionAnchors: [] as Array<{ id: string; top: number }>,
     keyword: '',
-    cart: {} as CartMap,
+    cartItems: [] as CartItem[],
+    dishCartCounts: {} as DishCountMap,
     cartCount: 0,
     cartTotal: 0,
     loading: false,
@@ -61,6 +62,7 @@ Page({
     (this as any).sectionMeasureTimer = null;
     (this as any).specDraftMap = {};
     (this as any).wsSocketTask = null;
+    (this as any).allowSocketReconnect = true;
 
     this.resolveSession(options);
     this.restoreCart();
@@ -71,6 +73,7 @@ Page({
   },
 
   onUnload() {
+    (this as any).allowSocketReconnect = false;
     const timer = (this as any).sectionMeasureTimer;
     if (timer) {
       clearTimeout(timer);
@@ -81,8 +84,8 @@ Page({
 
   initWebSocket() {
     try {
-      const BASE_URL = (wx.getStorageSync('MP_API_BASE_URL') as string) || 'http://localhost:8080';
-      const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/ws/menu';
+      const BASE_URL = String(wx.getStorageSync('MP_API_BASE_URL') || 'http://localhost:8080').replace(/\/+$/, '');
+      const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/api/ws/menu';
       console.log('连接 WebSocket:', wsUrl);
       
       const socketTask = wx.connectSocket({
@@ -116,8 +119,13 @@ Page({
       });
 
       socketTask.onClose(() => {
+        if (!(this as any).allowSocketReconnect) return;
         console.log('WebSocket 连接已关闭，5秒后重连...');
-        setTimeout(() => this.initWebSocket(), 5000);
+        setTimeout(() => {
+          if ((this as any).allowSocketReconnect) {
+            this.initWebSocket();
+          }
+        }, 5000);
       });
     } catch (e) {
       console.error('初始化 WebSocket 失败:', e);
@@ -125,6 +133,7 @@ Page({
   },
 
   closeWebSocket() {
+    (this as any).allowSocketReconnect = false;
     const socketTask = (this as any).wsSocketTask;
     if (socketTask) {
       try {
@@ -137,8 +146,8 @@ Page({
   },
 
   onShow() {
-    this.restoreCart();
-    this.calcTotal(this.data.cart, this.data.categories);
+    (this as any).allowSocketReconnect = true;
+    this.restoreCart(this.data.categories);
     this.scheduleMeasureSectionAnchors(120);
   },
 
@@ -175,9 +184,69 @@ Page({
     this.setData(session);
   },
 
-  restoreCart() {
-    const cart = (wx.getStorageSync(STORAGE_KEYS.cart) || {}) as CartMap;
-    this.setData({ cart });
+  makeCartKey(dishId: string, skuName = '') {
+    return `${dishId}::${skuName.trim()}`;
+  },
+
+  buildDishMap(categories: Category[]) {
+    const dishMap: Record<string, Dish> = {};
+    categories.forEach((category) => {
+      category.dishes.forEach((dish) => {
+        dishMap[dish.id] = dish;
+      });
+    });
+    return dishMap;
+  },
+
+  normalizeCartItems(raw: unknown, categories: Category[] = []): CartItem[] {
+    const dishMap = this.buildDishMap(categories);
+
+    if (Array.isArray(raw)) {
+      return raw
+        .map((item: any) => {
+          const dishId = String(item?.dishId || '').trim();
+          const skuName = String(item?.skuName || '').trim();
+          const dish = dishMap[dishId];
+          const qty = Number(item?.qty || 0);
+          if (!dishId || qty <= 0) return null;
+          return {
+            cartKey: this.makeCartKey(dishId, skuName),
+            dishId,
+            dishName: String(dish?.name || item?.dishName || ''),
+            unitPriceFen: Number(dish?.priceFen ?? item?.unitPriceFen ?? 0) || 0,
+            qty,
+            skuName,
+          } as CartItem;
+        })
+        .filter(Boolean) as CartItem[];
+    }
+
+    if (raw && typeof raw === 'object') {
+      return Object.keys(raw as Record<string, number>)
+        .map((dishId) => {
+          const qty = Number((raw as Record<string, number>)[dishId] || 0);
+          const dish = dishMap[dishId];
+          if (!dishId || qty <= 0) return null;
+          return {
+            cartKey: this.makeCartKey(dishId),
+            dishId,
+            dishName: String(dish?.name || ''),
+            unitPriceFen: Number(dish?.priceFen || 0),
+            qty,
+            skuName: '',
+          } as CartItem;
+        })
+        .filter(Boolean) as CartItem[];
+    }
+
+    return [];
+  },
+
+  restoreCart(categories: Category[] = []) {
+    const cartItems = this.normalizeCartItems(wx.getStorageSync(STORAGE_KEYS.cart), categories);
+    this.setData({ cartItems });
+    this.saveCart(cartItems);
+    this.calcTotal(cartItems);
   },
 
   async fetchMenu(storeId: string) {
@@ -220,7 +289,7 @@ Page({
         updatedAt: Date.now(),
       });
 
-      this.calcTotal(this.data.cart, categories);
+      this.restoreCart(categories);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '加载菜单失败';
       this.setData({ errorMsg: msg });
@@ -407,22 +476,36 @@ Page({
     return null;
   },
 
-  applyCartDelta(dishId: string, delta: number) {
-    if (!dishId || !delta) return;
+  applyCartDelta(dish: Dish, delta: number, skuName = '') {
+    if (!dish.id || !delta) return;
 
-    const cart: CartMap = { ...this.data.cart };
-    const nextQty = (cart[dishId] || 0) + delta;
+    const cartKey = this.makeCartKey(dish.id, skuName);
+    const cartItems = this.data.cartItems.map((item) => ({ ...item }));
+    const index = cartItems.findIndex((item) => item.cartKey === cartKey);
+    const currentQty = index >= 0 ? Number(cartItems[index].qty || 0) : 0;
+    const nextQty = currentQty + delta;
     if (nextQty < 0) return;
 
-    if (nextQty === 0) {
-      delete cart[dishId];
+    if (index >= 0 && nextQty === 0) {
+      cartItems.splice(index, 1);
+    } else if (index >= 0) {
+      cartItems[index] = { ...cartItems[index], qty: nextQty };
+    } else if (nextQty > 0) {
+      cartItems.push({
+        cartKey,
+        dishId: dish.id,
+        dishName: dish.name,
+        unitPriceFen: dish.priceFen,
+        qty: nextQty,
+        skuName: skuName.trim(),
+      });
     } else {
-      cart[dishId] = nextQty;
+      return;
     }
 
-    this.setData({ cart });
-    this.saveCart(cart);
-    this.calcTotal(cart, this.data.categories);
+    this.setData({ cartItems });
+    this.saveCart(cartItems);
+    this.calcTotal(cartItems);
   },
 
   updateCart(e: WechatMiniprogram.BaseEvent) {
@@ -448,7 +531,7 @@ Page({
       return;
     }
 
-    this.applyCartDelta(id, delta);
+    this.applyCartDelta(dish, delta);
   },
 
   noopTap() {},
@@ -456,7 +539,7 @@ Page({
   openSpecByDish(dish: Dish, categoryName: string) {
     const specGroups = this.getSpecGroupsByDish(dish, categoryName);
     if (!specGroups.length) {
-      this.applyCartDelta(dish.id, 1);
+      this.applyCartDelta(dish, 1);
       return;
     }
 
@@ -556,7 +639,7 @@ Page({
 
     const qty = this.data.specQty;
     const summary = this.data.specSummary;
-    this.applyCartDelta(dish.id, qty);
+    this.applyCartDelta(dish, qty, summary);
 
     this.closeSpec();
     wx.showToast({
@@ -565,31 +648,24 @@ Page({
     });
   },
 
-  saveCart(cart: CartMap) {
-    wx.setStorageSync(STORAGE_KEYS.cart, cart);
+  saveCart(cartItems: CartItem[]) {
+    wx.setStorageSync(STORAGE_KEYS.cart, cartItems);
   },
 
-  calcTotal(cart: CartMap, categories: Category[]) {
+  calcTotal(cartItems: CartItem[]) {
+    const dishCartCounts: DishCountMap = {};
     let cartCount = 0;
     let cartTotal = 0;
 
-    const dishMap: Record<string, Dish> = {};
-    categories.forEach((category) => {
-      category.dishes.forEach((dish) => {
-        dishMap[dish.id] = dish;
-      });
-    });
-
-    Object.keys(cart).forEach((dishId) => {
-      const qty = Number(cart[dishId] || 0);
+    cartItems.forEach((item) => {
+      const qty = Number(item.qty || 0);
       if (qty <= 0) return;
-      const dish = dishMap[dishId];
-      if (!dish) return;
+      dishCartCounts[item.dishId] = (dishCartCounts[item.dishId] || 0) + qty;
       cartCount += qty;
-      cartTotal += dish.priceFen * qty;
+      cartTotal += Number(item.unitPriceFen || 0) * qty;
     });
 
-    this.setData({ cartCount, cartTotal });
+    this.setData({ dishCartCounts, cartCount, cartTotal });
   },
 
   goToCart() {

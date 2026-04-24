@@ -79,13 +79,13 @@
                     data-id="{{dish.id}}"
                     disabled="{{dish.soldOut || !dish.onSale}}"
                   >选规格</button>
-                  <text wx:if="{{cart[dish.id] > 0}}" class="spec-count">已选{{cart[dish.id]}}</text>
+                  <text wx:if="{{dishCartCounts[dish.id] > 0}}" class="spec-count">已选{{dishCartCounts[dish.id]}}</text>
                 </view>
 
                 <view class="action-area" wx:else>
                   <view class="stepper">
                     <view
-                      wx:if="{{cart[dish.id] > 0}}"
+                      wx:if="{{dishCartCounts[dish.id] > 0}}"
                       class="btn-minus touch-target"
                       bindtap="updateCart"
                       data-id="{{dish.id}}"
@@ -93,7 +93,7 @@
                       hover-class="btn-active"
                     >-</view>
 
-                    <text wx:if="{{cart[dish.id] > 0}}" class="count">{{cart[dish.id]}}</text>
+                    <text wx:if="{{dishCartCounts[dish.id] > 0}}" class="count">{{dishCartCounts[dish.id]}}</text>
 
                     <view
                       class="btn-plus touch-target {{dish.soldOut || !dish.onSale ? 'disabled' : ''}}"

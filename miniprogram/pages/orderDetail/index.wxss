@@ -159,13 +159,25 @@
   column-gap: 14rpx;
 }
 
-.item-name {
+.item-main {
   flex: 1;
   min-width: 0;
+}
+
+.item-name {
+  display: block;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.item-sku {
+  display: block;
+  margin-top: 6rpx;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 24rpx;
+  line-height: 1.35;
 }
 
 .item-qty {
@@ -392,6 +404,21 @@
   border-color: rgba(245, 158, 11, 0.45);
   background: rgba(245, 158, 11, 0.2);
   color: #fde68a;
+}
+
+.support-btn {
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+  height: 82rpx;
+  line-height: 82rpx;
+  border-radius: 41rpx;
+  border: 1rpx solid rgba(56, 189, 248, 0.42);
+  background: rgba(56, 189, 248, 0.14);
+  color: #bae6fd;
+  font-size: 28rpx;
+  box-sizing: border-box;
+  padding: 0 14rpx;
 }
 
 @media (max-width: 360px) {

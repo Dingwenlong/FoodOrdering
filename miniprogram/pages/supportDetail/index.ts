@@ -13,7 +13,7 @@ Page({
   },
 
   onLoad(options: Record<string, string>) {
-    const ticketId = String(options.id || '').trim();
+    const ticketId = decodeURIComponent(String(options.id || '')).trim();
     if (!ticketId) {
       this.setData({ errorMsg: '缺少工单ID' });
       return;
@@ -37,9 +37,10 @@ Page({
           method: 'GET',
         }),
       ]);
+      const messages = Array.isArray(messageRes.data?.list) ? messageRes.data.list : [];
       this.setData({
         detail: detailRes.data,
-        messages: (messageRes.data.list || []).reverse(),
+        messages: messages.slice().reverse(),
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '消息加载失败';
@@ -69,7 +70,7 @@ Page({
       });
       this.setData({
         input: '',
-        messages: [...this.data.messages, res.data],
+        messages: this.data.messages.concat(res.data),
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '发送失败';
@@ -78,5 +79,11 @@ Page({
     } finally {
       this.setData({ sending: false });
     }
+  },
+
+  goBack() {
+    wx.navigateBack({
+      fail: () => wx.redirectTo({ url: '/pages/support/index' }),
+    });
   },
 });

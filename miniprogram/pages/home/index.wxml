@@ -20,10 +20,40 @@
       <button class="order-btn neon-btn" hover-class="btn-hover" bindtap="{{tableName ? 'goMenu' : 'goScan'}}">
         {{tableName ? '开始点餐' : '去绑定桌号'}}
       </button>
+
+      <view class="quick-actions" wx:if="{{tableName}}">
+        <button class="quick-btn" hover-class="btn-hover" bindtap="goOrders">我的订单</button>
+        <button class="quick-btn" hover-class="btn-hover" bindtap="goSupport">联系客服</button>
+      </view>
     </view>
 
     <!-- 错误信息 -->
     <view class="error-box" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+
+    <!-- 系统公告 -->
+    <view class="notice-section" wx:if="{{notices.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">系统公告</text>
+        <text class="section-subtitle">最新通知</text>
+      </view>
+
+      <view class="notice-list">
+        <view
+          class="notice-card glass-card"
+          wx:for="{{notices}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="openNotice"
+        >
+          <view class="notice-icon">i</view>
+          <view class="notice-content">
+            <text class="notice-title">{{item.title}}</text>
+            <text class="notice-text">{{item.content}}</text>
+          </view>
+          <text class="notice-arrow">›</text>
+        </view>
+      </view>
+    </view>
 
     <!-- 顾客评价 -->
     <view class="comments-section" wx:if="{{comments.length > 0}}">
@@ -47,6 +77,17 @@
           </view>
         </view>
       </scroll-view>
+    </view>
+  </view>
+
+  <view class="notice-modal-mask" wx:if="{{selectedNotice}}" catchtap="closeNotice">
+    <view class="notice-modal glass-card" catchtap="noop">
+      <text class="notice-modal-eyebrow">系统公告</text>
+      <text class="notice-modal-title">{{selectedNotice.title}}</text>
+      <scroll-view class="notice-modal-body" scroll-y>
+        <text>{{selectedNotice.content}}</text>
+      </scroll-view>
+      <button class="notice-modal-btn neon-btn" bindtap="closeNotice">知道了</button>
     </view>
   </view>
 

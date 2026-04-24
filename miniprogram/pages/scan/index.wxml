@@ -30,11 +30,46 @@
         class="manual-btn glass-btn-secondary"
         hover-class="btn-hover"
         bindtap="handleManual"
-        loading="{{loading}}"
         disabled="{{loading}}"
       >
         手动绑定并进入
       </button>
+
+      <view class="manual-form" wx:if="{{showManualForm}}">
+        <view class="field">
+          <text class="field-label">门店ID</text>
+          <input
+            class="field-input"
+            value="{{manualStoreId}}"
+            placeholder="请输入门店ID"
+            placeholder-class="field-placeholder"
+            bindinput="handleManualStoreInput"
+            disabled="{{loading}}"
+          />
+        </view>
+
+        <view class="field">
+          <text class="field-label">桌台ID</text>
+          <input
+            class="field-input"
+            value="{{manualTableId}}"
+            placeholder="请输入桌台ID"
+            placeholder-class="field-placeholder"
+            bindinput="handleManualTableInput"
+            disabled="{{loading}}"
+          />
+        </view>
+
+        <button
+          class="confirm-btn neon-btn"
+          hover-class="btn-hover"
+          bindtap="handleManualSubmit"
+          loading="{{loading}}"
+          disabled="{{loading}}"
+        >
+          确认绑定
+        </button>
+      </view>
     </view>
   </view>
 </view>

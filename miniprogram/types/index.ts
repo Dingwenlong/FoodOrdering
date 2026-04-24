@@ -35,10 +35,12 @@ export interface Category {
 }
 
 export interface CartItem {
+  cartKey: string;
   dishId: ID;
   dishName: string;
   unitPriceFen: number;
   qty: number;
+  skuName?: string;
 }
 
 export interface Order {
@@ -76,6 +78,7 @@ export interface MenuResult {
 export interface CreateOrderItem {
   dishId: ID;
   qty: number;
+  skuName?: string;
 }
 
 export interface CreateOrderPayload {
@@ -115,6 +118,13 @@ export interface ClientUser {
 export interface WechatLoginResult {
   token: string;
   user: ClientUser;
+}
+
+export interface Notice {
+  id: ID;
+  title: string;
+  content: string;
+  createdAt: string;
 }
 
 export interface SupportTicket {

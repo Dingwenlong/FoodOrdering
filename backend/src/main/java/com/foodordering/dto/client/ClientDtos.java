@@ -112,7 +112,8 @@ public final class ClientDtos {
     @Schema(description = "创建订单项请求")
     public record CreateOrderItemRequest(
             @Schema(description = "菜品ID") String dishId,
-            @Schema(description = "购买数量") Integer qty
+            @Schema(description = "购买数量") Integer qty,
+            @Schema(description = "规格名称快照") String skuName
     ) {
     }
 
@@ -136,6 +137,7 @@ public final class ClientDtos {
     public record OrderItemView(
             @Schema(description = "菜品ID") String dishId,
             @Schema(description = "菜品名称") String dishName,
+            @Schema(description = "规格名称") String skuName,
             @Schema(description = "单价") MoneyView unitPrice,
             @Schema(description = "数量") int qty
     ) {

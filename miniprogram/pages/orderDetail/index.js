@@ -10,7 +10,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const request_1 = require("../../utils/request");
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 Page({
     data: {
         order: null,
@@ -37,7 +36,10 @@ Page({
             this.setData({ errorMsg: '缺少订单ID，请返回购物车重新下单' });
             return;
         }
+        this.currentOrderId = orderId;
+        this.allowSocketReconnect = true;
         this.fetchOrder(orderId);
+        this.initWebSocket();
     },
     onReady() {
         this.recalcLayout();
@@ -47,6 +49,69 @@ Page({
         const orderId = (_a = this.data.order) === null || _a === void 0 ? void 0 : _a.id;
         if (orderId) {
             this.fetchOrder(orderId);
+        }
+    },
+    onUnload() {
+        this.allowSocketReconnect = false;
+        this.closeWebSocket();
+    },
+    initWebSocket() {
+        try {
+            const BASE_URL = String(wx.getStorageSync('MP_API_BASE_URL') || 'http://localhost:8080').replace(/\/+$/, '');
+            const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/api/ws/menu';
+            console.log('连接 WebSocket (订单详情):', wsUrl);
+            const socketTask = wx.connectSocket({
+                url: wsUrl,
+                protocols: [],
+            });
+            this.wsSocketTask = socketTask;
+            socketTask.onOpen(() => {
+                console.log('WebSocket 连接已打开 (订单详情)');
+            });
+            socketTask.onMessage((res) => {
+                console.log('收到 WebSocket 消息 (订单详情):', res.data);
+                try {
+                    const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+                    if (data.type === 'order_updated' && data.orderId === this.currentOrderId) {
+                        console.log('订单已更新，正在刷新...');
+                        if (this.currentOrderId) {
+                            this.fetchOrder(this.currentOrderId);
+                        }
+                    }
+                }
+                catch (e) {
+                    console.error('解析 WebSocket 消息失败:', e);
+                }
+            });
+            socketTask.onError((err) => {
+                console.error('WebSocket 连接错误 (订单详情):', err);
+            });
+            socketTask.onClose(() => {
+                if (!this.allowSocketReconnect)
+                    return;
+                console.log('WebSocket 连接已关闭 (订单详情)，5秒后重连...');
+                setTimeout(() => {
+                    if (this.allowSocketReconnect) {
+                        this.initWebSocket();
+                    }
+                }, 5000);
+            });
+        }
+        catch (e) {
+            console.error('初始化 WebSocket 失败 (订单详情):', e);
+        }
+    },
+    closeWebSocket() {
+        this.allowSocketReconnect = false;
+        const socketTask = this.wsSocketTask;
+        if (socketTask) {
+            try {
+                socketTask.close();
+            }
+            catch (e) {
+                console.error('关闭 WebSocket 失败 (订单详情):', e);
+            }
+            this.wsSocketTask = null;
         }
     },
     onResize() {
@@ -146,9 +211,9 @@ Page({
                     method: 'POST',
                     data: payload,
                 });
-                if ((0, request_1.shouldUseMock)()) {
+                const payParams = prepayRes.data;
+                if (String(payParams.paySign || '').startsWith('mock-sign-')) {
                     wx.showLoading({ title: '支付处理中...' });
-                    yield wait(900);
                     const confirmRes = yield (0, request_1.request)({
                         url: '/pay/wechat/confirm',
                         method: 'POST',
@@ -160,7 +225,6 @@ Page({
                     wx.showToast({ title: '支付成功', icon: 'success' });
                     return;
                 }
-                const payParams = prepayRes.data;
                 yield new Promise((resolve, reject) => {
                     wx.requestPayment({
                         timeStamp: payParams.timeStamp,
@@ -235,15 +299,6 @@ Page({
             finally {
                 this.setData({ cancelLoading: false });
             }
-        });
-    },
-    refreshOrder() {
-        var _a;
-        return __awaiter(this, void 0, void 0, function* () {
-            const orderId = (_a = this.data.order) === null || _a === void 0 ? void 0 : _a.id;
-            if (!orderId)
-                return;
-            yield this.fetchOrder(orderId);
         });
     },
     loadReviewState(orderId) {
@@ -358,5 +413,8 @@ Page({
         wx.redirectTo({
             url: `/pages/menu/index?storeId=${session.storeId}&tableId=${session.tableId}`,
         });
+    },
+    goSupport() {
+        wx.navigateTo({ url: '/pages/support/index' });
     },
 });

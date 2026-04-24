@@ -42,7 +42,8 @@ Page({
         toView: '',
         sectionAnchors: [],
         keyword: '',
-        cart: {},
+        cartItems: [],
+        dishCartCounts: {},
         cartCount: 0,
         cartTotal: 0,
         loading: false,
@@ -58,15 +59,86 @@ Page({
         this.scrollLockUntil = 0;
         this.sectionMeasureTimer = null;
         this.specDraftMap = {};
+        this.wsSocketTask = null;
+        this.allowSocketReconnect = true;
         this.resolveSession(options);
         this.restoreCart();
         if (this.data.storeId) {
             this.fetchMenu(this.data.storeId);
         }
+        this.initWebSocket();
+    },
+    onUnload() {
+        this.allowSocketReconnect = false;
+        const timer = this.sectionMeasureTimer;
+        if (timer) {
+            clearTimeout(timer);
+            this.sectionMeasureTimer = null;
+        }
+        this.closeWebSocket();
+    },
+    initWebSocket() {
+        try {
+            const BASE_URL = String(wx.getStorageSync('MP_API_BASE_URL') || 'http://localhost:8080').replace(/\/+$/, '');
+            const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/api/ws/menu';
+            console.log('连接 WebSocket:', wsUrl);
+            const socketTask = wx.connectSocket({
+                url: wsUrl,
+                protocols: [],
+            });
+            this.wsSocketTask = socketTask;
+            socketTask.onOpen(() => {
+                console.log('WebSocket 连接已打开');
+            });
+            socketTask.onMessage((res) => {
+                console.log('收到 WebSocket 消息:', res.data);
+                try {
+                    const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+                    if (data.type === 'menu_updated') {
+                        console.log('菜单已更新，正在刷新...');
+                        if (this.data.storeId) {
+                            this.fetchMenu(this.data.storeId);
+                        }
+                    }
+                }
+                catch (e) {
+                    console.error('解析 WebSocket 消息失败:', e);
+                }
+            });
+            socketTask.onError((err) => {
+                console.error('WebSocket 连接错误:', err);
+            });
+            socketTask.onClose(() => {
+                if (!this.allowSocketReconnect)
+                    return;
+                console.log('WebSocket 连接已关闭，5秒后重连...');
+                setTimeout(() => {
+                    if (this.allowSocketReconnect) {
+                        this.initWebSocket();
+                    }
+                }, 5000);
+            });
+        }
+        catch (e) {
+            console.error('初始化 WebSocket 失败:', e);
+        }
+    },
+    closeWebSocket() {
+        this.allowSocketReconnect = false;
+        const socketTask = this.wsSocketTask;
+        if (socketTask) {
+            try {
+                socketTask.close();
+            }
+            catch (e) {
+                console.error('关闭 WebSocket 失败:', e);
+            }
+            this.wsSocketTask = null;
+        }
     },
     onShow() {
-        this.restoreCart();
-        this.calcTotal(this.data.cart, this.data.categories);
+        this.allowSocketReconnect = true;
+        this.restoreCart(this.data.categories);
         this.scheduleMeasureSectionAnchors(120);
     },
     onPullDownRefresh() {
@@ -75,13 +147,6 @@ Page({
             return;
         }
         this.fetchMenu(this.data.storeId).finally(() => wx.stopPullDownRefresh());
-    },
-    onUnload() {
-        const timer = this.sectionMeasureTimer;
-        if (timer) {
-            clearTimeout(timer);
-            this.sectionMeasureTimer = null;
-        }
     },
     resolveSession(options) {
         const cachedSession = wx.getStorageSync(request_1.STORAGE_KEYS.session) || {};
@@ -103,9 +168,66 @@ Page({
         wx.setStorageSync('tableId', tableId);
         this.setData(session);
     },
-    restoreCart() {
-        const cart = (wx.getStorageSync(request_1.STORAGE_KEYS.cart) || {});
-        this.setData({ cart });
+    makeCartKey(dishId, skuName = '') {
+        return `${dishId}::${skuName.trim()}`;
+    },
+    buildDishMap(categories) {
+        const dishMap = {};
+        categories.forEach((category) => {
+            category.dishes.forEach((dish) => {
+                dishMap[dish.id] = dish;
+            });
+        });
+        return dishMap;
+    },
+    normalizeCartItems(raw, categories = []) {
+        const dishMap = this.buildDishMap(categories);
+        if (Array.isArray(raw)) {
+            return raw
+                .map((item) => {
+                var _a, _b;
+                const dishId = String((item === null || item === void 0 ? void 0 : item.dishId) || '').trim();
+                const skuName = String((item === null || item === void 0 ? void 0 : item.skuName) || '').trim();
+                const dish = dishMap[dishId];
+                const qty = Number((item === null || item === void 0 ? void 0 : item.qty) || 0);
+                if (!dishId || qty <= 0)
+                    return null;
+                return {
+                    cartKey: this.makeCartKey(dishId, skuName),
+                    dishId,
+                    dishName: String((dish === null || dish === void 0 ? void 0 : dish.name) || (item === null || item === void 0 ? void 0 : item.dishName) || ''),
+                    unitPriceFen: Number((_b = (_a = dish === null || dish === void 0 ? void 0 : dish.priceFen) !== null && _a !== void 0 ? _a : item === null || item === void 0 ? void 0 : item.unitPriceFen) !== null && _b !== void 0 ? _b : 0) || 0,
+                    qty,
+                    skuName,
+                };
+            })
+                .filter(Boolean);
+        }
+        if (raw && typeof raw === 'object') {
+            return Object.keys(raw)
+                .map((dishId) => {
+                const qty = Number(raw[dishId] || 0);
+                const dish = dishMap[dishId];
+                if (!dishId || qty <= 0)
+                    return null;
+                return {
+                    cartKey: this.makeCartKey(dishId),
+                    dishId,
+                    dishName: String((dish === null || dish === void 0 ? void 0 : dish.name) || ''),
+                    unitPriceFen: Number((dish === null || dish === void 0 ? void 0 : dish.priceFen) || 0),
+                    qty,
+                    skuName: '',
+                };
+            })
+                .filter(Boolean);
+        }
+        return [];
+    },
+    restoreCart(categories = []) {
+        const cartItems = this.normalizeCartItems(wx.getStorageSync(request_1.STORAGE_KEYS.cart), categories);
+        this.setData({ cartItems });
+        this.saveCart(cartItems);
+        this.calcTotal(cartItems);
     },
     fetchMenu(storeId) {
         var _a, _b;
@@ -117,7 +239,7 @@ Page({
                     method: 'GET',
                 });
                 const payload = res.data;
-                const categories = (payload.categories || []).map((category) => (Object.assign(Object.assign({}, category), { dishes: (category.dishes || []).slice().sort((a, b) => Number(a.id) - Number(b.id)) })));
+                const categories = (payload.categories || []).map((category) => (Object.assign(Object.assign({}, category), { dishes: (category.dishes || []).slice() })));
                 const viewCategories = this.buildViewCategories(categories, this.data.keyword);
                 const fallbackCurrent = this.data.currentCategory || ((_a = viewCategories[0]) === null || _a === void 0 ? void 0 : _a.id) || '';
                 const nextCurrent = viewCategories.some((item) => item.id === fallbackCurrent)
@@ -138,7 +260,7 @@ Page({
                     categories,
                     updatedAt: Date.now(),
                 });
-                this.calcTotal(this.data.cart, categories);
+                this.restoreCart(categories);
             }
             catch (err) {
                 const msg = err instanceof Error ? err.message : '加载菜单失败';
@@ -301,22 +423,38 @@ Page({
         }
         return null;
     },
-    applyCartDelta(dishId, delta) {
-        if (!dishId || !delta)
+    applyCartDelta(dish, delta, skuName = '') {
+        if (!dish.id || !delta)
             return;
-        const cart = Object.assign({}, this.data.cart);
-        const nextQty = (cart[dishId] || 0) + delta;
+        const cartKey = this.makeCartKey(dish.id, skuName);
+        const cartItems = this.data.cartItems.map((item) => (Object.assign({}, item)));
+        const index = cartItems.findIndex((item) => item.cartKey === cartKey);
+        const currentQty = index >= 0 ? Number(cartItems[index].qty || 0) : 0;
+        const nextQty = currentQty + delta;
         if (nextQty < 0)
             return;
-        if (nextQty === 0) {
-            delete cart[dishId];
+        if (index >= 0 && nextQty === 0) {
+            cartItems.splice(index, 1);
+        }
+        else if (index >= 0) {
+            cartItems[index] = Object.assign(Object.assign({}, cartItems[index]), { qty: nextQty });
+        }
+        else if (nextQty > 0) {
+            cartItems.push({
+                cartKey,
+                dishId: dish.id,
+                dishName: dish.name,
+                unitPriceFen: dish.priceFen,
+                qty: nextQty,
+                skuName: skuName.trim(),
+            });
         }
         else {
-            cart[dishId] = nextQty;
+            return;
         }
-        this.setData({ cart });
-        this.saveCart(cart);
-        this.calcTotal(cart, this.data.categories);
+        this.setData({ cartItems });
+        this.saveCart(cartItems);
+        this.calcTotal(cartItems);
     },
     updateCart(e) {
         const id = String(e.currentTarget.dataset.id || '');
@@ -338,13 +476,13 @@ Page({
             this.openSpecByDish(dish, categoryName);
             return;
         }
-        this.applyCartDelta(id, delta);
+        this.applyCartDelta(dish, delta);
     },
     noopTap() { },
     openSpecByDish(dish, categoryName) {
         const specGroups = this.getSpecGroupsByDish(dish, categoryName);
         if (!specGroups.length) {
-            this.applyCartDelta(dish.id, 1);
+            this.applyCartDelta(dish, 1);
             return;
         }
         const draftMap = (this.specDraftMap || {});
@@ -434,36 +572,29 @@ Page({
             return;
         const qty = this.data.specQty;
         const summary = this.data.specSummary;
-        this.applyCartDelta(dish.id, qty);
+        this.applyCartDelta(dish, qty, summary);
         this.closeSpec();
         wx.showToast({
             title: summary ? `已加入${qty}份(${summary})` : `已加入${qty}份`,
             icon: 'none',
         });
     },
-    saveCart(cart) {
-        wx.setStorageSync(request_1.STORAGE_KEYS.cart, cart);
+    saveCart(cartItems) {
+        wx.setStorageSync(request_1.STORAGE_KEYS.cart, cartItems);
     },
-    calcTotal(cart, categories) {
+    calcTotal(cartItems) {
+        const dishCartCounts = {};
         let cartCount = 0;
         let cartTotal = 0;
-        const dishMap = {};
-        categories.forEach((category) => {
-            category.dishes.forEach((dish) => {
-                dishMap[dish.id] = dish;
-            });
-        });
-        Object.keys(cart).forEach((dishId) => {
-            const qty = Number(cart[dishId] || 0);
+        cartItems.forEach((item) => {
+            const qty = Number(item.qty || 0);
             if (qty <= 0)
                 return;
-            const dish = dishMap[dishId];
-            if (!dish)
-                return;
+            dishCartCounts[item.dishId] = (dishCartCounts[item.dishId] || 0) + qty;
             cartCount += qty;
-            cartTotal += dish.priceFen * qty;
+            cartTotal += Number(item.unitPriceFen || 0) * qty;
         });
-        this.setData({ cartCount, cartTotal });
+        this.setData({ dishCartCounts, cartCount, cartTotal });
     },
     goToCart() {
         if (this.data.cartCount <= 0) {

@@ -36,6 +36,14 @@ class AdminControllerIntegrationTest {
         assertEquals(200, summary.getStatusCodeValue());
         assertNotNull(data(summary).get("revenue"));
 
+        ResponseEntity<Map> trend = restTemplate.exchange(url("/api/v1/admin/stats/trend?from=2026-03-01&to=2026-03-01"), HttpMethod.GET, entity, Map.class);
+        assertEquals(200, trend.getStatusCodeValue());
+        assertTrue(dataList(trend).size() > 0);
+
+        ResponseEntity<Map> dishSales = restTemplate.exchange(url("/api/v1/admin/stats/dish-sales"), HttpMethod.GET, entity, Map.class);
+        assertEquals(200, dishSales.getStatusCodeValue());
+        assertTrue(dataList(dishSales).size() > 0);
+
         ResponseEntity<Map> settings = restTemplate.exchange(url("/api/v1/admin/settings"), HttpMethod.GET, entity, Map.class);
         assertEquals(200, settings.getStatusCodeValue());
         assertEquals("store_1", data(settings).get("storeId"));
@@ -81,6 +89,15 @@ class AdminControllerIntegrationTest {
         Object data = body.get("data");
         assertTrue(data instanceof Map);
         return (Map<String, Object>) data;
+    }
+
+    @SuppressWarnings("unchecked")
+    private java.util.List<Object> dataList(ResponseEntity<Map> response) {
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        Object data = body.get("data");
+        assertTrue(data instanceof java.util.List);
+        return (java.util.List<Object>) data;
     }
 
     private HttpHeaders authHeaders(String token) {

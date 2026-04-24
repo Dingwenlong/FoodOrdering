@@ -6,9 +6,10 @@
 
     <view class="error-box" wx:if="{{errorMsg}}">{{errorMsg}}</view>
 
-    <view wx:for="{{items}}" wx:key="dishId" class="cart-item glass-card">
+    <view wx:for="{{items}}" wx:key="cartKey" class="cart-item glass-card">
       <view class="item-info">
         <text class="name">{{item.dishName}}</text>
+        <text class="sku-name" wx:if="{{item.skuName}}">{{item.skuName}}</text>
         <view class="price-wrap">
           <text class="currency">¥</text>
           <text class="price price-font">{{item.unitPriceFen / 100}}</text>
@@ -19,7 +20,7 @@
         <view
           class="btn-minus touch-target"
           bindtap="updateQty"
-          data-id="{{item.dishId}}"
+          data-key="{{item.cartKey}}"
           data-delta="{{-1}}"
           hover-class="btn-active"
         >-</view>
@@ -29,7 +30,7 @@
         <view
           class="btn-plus touch-target"
           bindtap="updateQty"
-          data-id="{{item.dishId}}"
+          data-key="{{item.cartKey}}"
           data-delta="{{1}}"
           hover-class="btn-active"
         >+</view>

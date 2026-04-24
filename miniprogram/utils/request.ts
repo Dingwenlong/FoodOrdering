@@ -15,7 +15,6 @@ import type {
 
 const API_BASE_URL_KEY = 'MP_API_BASE_URL';
 
-const BASE_URL = (wx.getStorageSync(API_BASE_URL_KEY) as string) || 'http://localhost:8080';
 const API_PREFIX = '/api/v1';
 
 export const STORAGE_KEYS = {
@@ -92,16 +91,17 @@ function normalizeApiPath(path: string): string {
 }
 
 function resolveUrl(rawUrl: string): string {
+  const baseUrl = String(wx.getStorageSync(API_BASE_URL_KEY) || 'http://localhost:8080').replace(/\/+$/, '');
   if (/^https?:\/\//i.test(rawUrl)) {
     return rawUrl;
   }
   if (rawUrl.startsWith('/api/')) {
-    return `${BASE_URL}${rawUrl}`;
+    return `${baseUrl}${rawUrl}`;
   }
   if (rawUrl.startsWith('/')) {
-    return `${BASE_URL}${API_PREFIX}${rawUrl}`;
+    return `${baseUrl}${API_PREFIX}${rawUrl}`;
   }
-  return `${BASE_URL}${API_PREFIX}/${rawUrl}`;
+  return `${baseUrl}${API_PREFIX}/${rawUrl}`;
 }
 
 function wxLogin(): Promise<string> {
@@ -173,8 +173,10 @@ function normalizeOrder(rawOrder: any): Order {
   const items = rawItems.map((item: any) => {
     const unitPriceFen = item?.unitPriceFen ?? item?.unitPrice?.amountFen ?? 0;
     return {
+      cartKey: `${String(item?.dishId || '')}::${String(item?.skuName || '')}`,
       dishId: String(item?.dishId || ''),
       dishName: String(item?.dishName || ''),
+      skuName: item?.skuName ? String(item.skuName) : '',
       unitPriceFen: Number(unitPriceFen) || 0,
       qty: Number(item?.qty) || 0,
     };
@@ -253,6 +255,9 @@ async function rawRequest<T = any>(
           }
           if (path === '/orders' && method === 'POST') {
             data = normalizeOrder(data);
+          }
+          if (path === '/orders' && method === 'GET' && Array.isArray(data)) {
+            data = data.map((item) => normalizeOrder(item));
           }
           if (/^\/orders\/.+/.test(path) && method === 'GET') {
             data = normalizeOrder(data);

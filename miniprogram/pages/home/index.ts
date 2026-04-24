@@ -1,4 +1,5 @@
 import { request, STORAGE_KEYS } from '../../utils/request';
+import type { Notice } from '../../types/index';
 
 interface Comment {
   id: number;
@@ -15,6 +16,8 @@ Page({
     errorMsg: '',
     tableName: '',
     orderCount: 0,
+    notices: [] as Notice[],
+    selectedNotice: null as Notice | null,
     comments: [] as Comment[],
   },
 
@@ -23,22 +26,24 @@ Page({
     const session = wx.getStorageSync(STORAGE_KEYS.session);
     if (session) {
       this.setData({ tableName: session.tableName });
-      this.fetchData();
-    } else {
-      this.setData({ loading: false });
     }
+    this.fetchData();
   },
 
   async fetchData() {
     try {
       this.setData({ loading: true, errorMsg: '' });
-      
-      // 获取顾客评论
-      const commentsRes = await request.get('/v1/comments?limit=3');
-      
+
+      const [noticeRes, commentsRes] = await Promise.all([
+        request<Notice[]>({ url: '/notices', method: 'GET' }),
+        request<Comment[]>({ url: '/comments?limit=3', method: 'GET' }),
+      ]);
+
+      console.log('公告数据:', noticeRes);
       console.log('评论数据:', commentsRes);
       
       this.setData({
+        notices: noticeRes.data || [],
         comments: commentsRes.data || [],
         loading: false
       });
@@ -56,8 +61,26 @@ Page({
   },
 
   goOrders() {
-    wx.switchTab({ url: '/pages/orders/index' });
+    wx.navigateTo({ url: '/pages/orders/index' });
   },
+
+  goSupport() {
+    wx.navigateTo({ url: '/pages/support/index' });
+  },
+
+  openNotice(e: WechatMiniprogram.BaseEvent) {
+    const id = String(e.currentTarget.dataset.id || '');
+    const notice = this.data.notices.find((item) => String(item.id) === id);
+    if (notice) {
+      this.setData({ selectedNotice: notice });
+    }
+  },
+
+  closeNotice() {
+    this.setData({ selectedNotice: null });
+  },
+
+  noop() {},
 
   goScan() {
     wx.navigateTo({ url: '/pages/scan/index' });

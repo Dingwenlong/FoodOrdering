@@ -4,10 +4,10 @@
       <text class="topic">{{detail.topic}}</text>
       <text class="meta">工单 {{detail.id}} · {{detail.status === 'OPEN' ? '处理中' : '已关闭'}}</text>
     </view>
-    <button class="refresh-btn" loading="{{loading}}" bindtap="refresh">刷新</button>
   </view>
 
   <view class="error-state" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+  <button class="back-btn" wx:if="{{errorMsg && !detail}}" bindtap="goBack">返回我的客服</button>
   <view class="loading-state" wx:if="{{loading && messages.length === 0}}">消息加载中...</view>
 
   <scroll-view class="message-list" scroll-y>
